@@ -12,6 +12,7 @@ const { createAdmin } = await import('../server/src/modules/admin/admin.reposito
 await query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')
 await migrate({ log: () => {} })
 await createUser({ login: 'e2e', password: 'e2e-password', name: 'Тест' })
+await createUser({ login: 'e2e-onboarding', password: 'e2e-password', name: 'Новый' })
 await createUser({ login: 'e2e-2fa', password: 'e2e-password', name: 'Защищённый' })
 await createAdmin('owner', 'owner-password')
 await pool.end()

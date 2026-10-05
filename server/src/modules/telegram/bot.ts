@@ -189,9 +189,9 @@ async function toggleHabit(user: TgUser, cb: Cb, id: number, out: TelegramOut) {
   if (!habit) return out.answer(cb.id, 'Привычка не найдена')
   const { date } = await userNow(user.id)
   const current = await habitLogStatus(id, date)
-  const target = habit.kind === 'quit' ? 'slip' : 'done'
-  await setHabitLog(user.id, id, date, current ? null : target)
-  await out.answer(cb.id, current ? 'Отметка снята' : habit.kind === 'quit' ? 'Отмечен срыв' : 'Отмечено')
+  const target = habit.kind === 'quit' ? (current === 'done' ? 'slip' : current === 'slip' ? null : 'done') : current ? null : 'done'
+  await setHabitLog(user.id, id, date, target)
+  await out.answer(cb.id, target === 'slip' ? 'Отмечен срыв' : target === 'done' ? 'Отмечено' : 'Отметка снята')
   const v = await habitsView(user.id)
   return out.edit(cb.message.chat.id, cb.message.message_id, v.text, v.buttons)
 }
@@ -243,7 +243,14 @@ async function taskToMoney(user: TgUser, cb: Cb, id: number, out: TelegramOut) {
   const account = await defaultAccount(user.id)
   const tx = await createRecord(
     'transactions',
-    { kind: 'expense', amount, category: await canonicalCategory(user.id, 'expense', category || null), note: note.join(' ') || null, date, account_id: account },
+    {
+      kind: 'expense',
+      amount,
+      category: await canonicalCategory(user.id, 'expense', category || null),
+      note: note.join(' ') || null,
+      date,
+      account_id: account,
+    },
     user.id,
   )
   remember(`tx:${tx.id}`, task.title)

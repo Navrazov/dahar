@@ -44,6 +44,7 @@ test.describe('signed in', () => {
     await page.goto('/tasks')
     await page.getByRole('button', { name: 'Задача', exact: true }).click()
     await editor(page).getByLabel('Название *').fill(title)
+    await editor(page).getByRole('button', { name: 'Дополнительные настройки' }).click()
     await pick(page, 'Повторять', 'Каждый день')
     await editor(page).getByRole('button', { name: 'Создать' }).click()
     await expect(editor(page)).toBeHidden()

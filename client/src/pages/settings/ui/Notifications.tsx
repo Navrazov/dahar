@@ -99,10 +99,7 @@ export function Notifications() {
               <Skeleton className="mt-3 h-9 w-44" />
             </div>
           ) : !tg.data?.enabled ? (
-            <p className="text-[12.5px] leading-relaxed text-fg-3">
-              Бот не настроен на сервере. Создайте бота у @BotFather и задайте переменную окружения{' '}
-              <code className="rounded bg-surface-2 px-1">TELEGRAM_BOT_TOKEN</code> — инструкция в README.
-            </p>
+            <p className="text-[12.5px] leading-relaxed text-fg-3">Telegram пока недоступен. Обратитесь к владельцу сервиса, чтобы подключить бота.</p>
           ) : tg.data.linked ? (
             <div className="space-y-3">
               <p className="text-[12.5px] leading-relaxed text-fg-2">

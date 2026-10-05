@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
 import { addDays, endOfISOWeek } from 'date-fns'
-import { type Task, type TaskStatus, useList, useSave } from '@/shared/api'
+import { api, invalidateCollection, type Task, type TaskStatus, useList, useSave } from '@/shared/api'
 import { todayStr, ymd } from '@/shared/lib'
-import { Button, Card, Empty, FilterSelect, Input, PageHeader, SearchInput, Segmented, StatusPicker } from '@/shared/ui'
+import { Button, Card, Checkbox, DatePicker, Empty, FilterSelect, Input, PageHeader, SearchInput, Segmented, StatusPicker } from '@/shared/ui'
 import { ProjectFilter } from '@/entities/project'
 import { priorities, sortTasks, taskStatuses } from '@/entities/task'
 import { useEditor } from '@/features/edit-record'
@@ -42,6 +44,32 @@ function groupByDue(tasks: Task[]) {
 
 export function TasksPage() {
   const tasks = useList('tasks')
+  const projects = useList('projects')
+  const qc = useQueryClient()
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkDate, setBulkDate] = useState<string | null>(null)
+  const [bulkProject, setBulkProject] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const toggle = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const bulk = async (data: Partial<Task>) => {
+    setBulkBusy(true)
+    try {
+      await api.bulkTasks([...selected], data)
+      setSelected(new Set())
+      await invalidateCollection(qc, 'tasks')
+      toast.success('Выбранные задачи обновлены')
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBulkBusy(false)
+    }
+  }
   const edit = useEditor()
   const save = useSave('tasks')
   const [view, setView] = useState<View>('list')
@@ -60,16 +88,18 @@ export function TasksPage() {
       (!q || (t.title + ' ' + (t.description || '')).toLowerCase().includes(q.toLowerCase())),
   )
 
-  const addQuick = () => {
+  const addQuick = async () => {
     if (!quick.trim()) return
-    save.mutate({
-      title: quick.trim(),
-      status: 'todo',
-      priority: 'medium',
-      due_date: todayStr(),
-      project_id: project && project !== 'none' ? Number(project) : null,
-    })
-    setQuick('')
+    try {
+      await save.mutateAsync({
+        title: quick.trim(),
+        status: 'todo',
+        priority: 'medium',
+        due_date: todayStr(),
+        project_id: project && project !== 'none' ? Number(project) : null,
+      })
+      setQuick('')
+    } catch {}
   }
 
   return (
@@ -111,12 +141,52 @@ export function TasksPage() {
         )}
       </div>
 
+      {!!selected.size && (
+        <Card className="mb-4 flex flex-wrap items-center gap-2 p-3">
+          <span className="text-[13px]">Выбрано: {selected.size}</span>
+          <Button size="sm" loading={bulkBusy} onClick={() => bulk({ status: 'done' })}>
+            Завершить
+          </Button>
+          <Button size="sm" disabled={bulkBusy} onClick={() => bulk({ due_date: ymd(addDays(new Date(), 1)) })}>
+            На завтра
+          </Button>
+          <div className="w-40">
+            <DatePicker value={bulkDate} onChange={setBulkDate} />
+          </div>
+          <Button size="sm" disabled={!bulkDate || bulkBusy} onClick={() => bulk({ due_date: bulkDate })}>
+            Перенести
+          </Button>
+          <FilterSelect
+            value={bulkProject}
+            onChange={setBulkProject}
+            all="Выберите проект"
+            options={[{ value: 'none', label: 'Без проекта' }, ...projects.map((p) => ({ value: String(p.id), label: p.name }))]}
+          />
+          <Button size="sm" disabled={!bulkProject || bulkBusy} onClick={() => bulk({ project_id: bulkProject === 'none' ? null : Number(bulkProject) })}>
+            Связать
+          </Button>
+          <Button size="sm" onClick={() => setSelected(new Set())}>
+            Снять выбор
+          </Button>
+        </Card>
+      )}
+      {view === 'list' && !!filtered.length && (
+        <div className="mb-2 flex items-center gap-2 text-[13px] text-fg-2">
+          <Checkbox
+            label="Выбрать все показанные задачи"
+            checked={filtered.every((t) => selected.has(t.id))}
+            onChange={() => setSelected(filtered.every((t) => selected.has(t.id)) ? new Set() : new Set(filtered.map((t) => t.id)))}
+          />
+          Выбрать показанные задачи
+        </div>
+      )}
       {view === 'list' ? (
         <Card>
           <div className="flex items-center gap-2 border-b border-line px-4 py-2">
             <Plus size={15} className="text-fg-3" />
             <Input
               value={quick}
+              disabled={save.isPending}
               onChange={(e) => setQuick(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addQuick()}
               placeholder="Быстрая задача на сегодня — введите и нажмите Enter"
@@ -133,7 +203,14 @@ export function TasksPage() {
                 </div>
                 <div className="divide-y divide-line">
                   {sortTasks(g.items).map((t) => (
-                    <TaskRow key={t.id} task={t} />
+                    <div key={t.id} className="flex items-center">
+                      <div className="pl-3">
+                        <Checkbox label={`Выбрать ${t.title}`} checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <TaskRow task={t} />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>

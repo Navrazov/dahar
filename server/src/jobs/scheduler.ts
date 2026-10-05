@@ -38,11 +38,19 @@ async function tick() {
 export function startScheduler() {
   state.startedAt = new Date().toISOString()
   state.running = true
-  tick()
-  const timer = setInterval(tick, 60_000)
+  let active: Promise<void> | null = null
+  const run = () => {
+    if (!active)
+      active = tick().finally(() => {
+        active = null
+      })
+  }
+  run()
+  const timer = setInterval(run, 60_000)
   timer.unref()
-  return () => {
+  return async () => {
     clearInterval(timer)
     state.running = false
+    await active
   }
 }

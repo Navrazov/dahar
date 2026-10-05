@@ -54,7 +54,7 @@ export function GoalRow({ goal, hideProject }: { goal: Goal; hideProject?: boole
 const statusOrder: Record<string, number> = { active: 0, done: 1, dropped: 2 }
 
 export function GoalList({ goals, hideProject }: { goals: Goal[]; hideProject?: boolean }) {
-  if (!goals.length) return <Empty title="Целей нет" hint="Цель с числом, например «10 партнёров», сама показывает прогресс" />
+  if (!goals.length) return <Empty title="Целей нет" hint="Цель с числом, например «12 книг», показывает прогресс" />
   const sorted = [...goals].sort(
     (a, b) => (statusOrder[a.status || 'active'] ?? 0) - (statusOrder[b.status || 'active'] ?? 0) || (a.deadline || '9').localeCompare(b.deadline || '9'),
   )

@@ -6,8 +6,8 @@ import { useUser } from '@/entities/session'
 import { SettingControl, type SettingItem } from '@/features/module-settings'
 
 const general: SettingItem[] = [
-  { key: 'currency', label: 'Основная валюта', type: 'currency', hint: 'Финансы и бизнес' },
-  { key: 'trading_currency', label: 'Валюта трейдинга', type: 'currency' },
+  { key: 'currency', label: 'Основная валюта', type: 'currency', hint: 'Одна валюта для финансов и бизнеса. После появления сумм смена валюты недоступна' },
+  { key: 'trading_currency', label: 'Валюта трейдинга', type: 'currency', hint: 'После появления сумм смена валюты недоступна' },
 ]
 
 export function Profile() {
@@ -20,10 +20,14 @@ export function Profile() {
   }, [settings])
 
   const save = async () => {
-    for (const k of ['user_name', ...general.map((g) => g.key)] as (keyof Settings)[]) {
-      if (draft[k] !== settings[k]) await set.mutateAsync({ key: k, value: draft[k] ?? null })
+    try {
+      for (const k of ['user_name', ...general.map((g) => g.key)] as (keyof Settings)[]) {
+        if (draft[k] !== settings[k]) await set.mutateAsync({ key: k, value: draft[k] ?? null })
+      }
+      toast.success('Сохранено')
+    } catch {
+      /* Mutation handler shows the error; keep the draft for correction. */
     }
-    toast.success('Сохранено')
   }
 
   return (

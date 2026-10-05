@@ -132,7 +132,9 @@ test('backup holds only own data; restore leaves other users alone', async () =>
   }
   assert.equal(backup.settings.currency, undefined)
 
-  assert.equal((await bob.post('/api/restore', { data: {} })).status, 200)
+  assert.equal((await bob.post('/api/restore', { data: {} })).status, 400)
+  const empty = { ...backup, data: Object.fromEntries(tableOrder.map((t) => [t, []])), imports: [], category_rules: [], confirm: 'replace' }
+  assert.equal((await bob.post('/api/restore', empty)).status, 200)
   assert.deepEqual((await bob.get('/api/projects')).body, [])
   assert.equal((await alice.get('/api/projects')).body.length, 1, 'alice keeps her data')
 })

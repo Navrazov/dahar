@@ -1,3 +1,6 @@
+import { recordLabels } from './records.labels.ts'
+import { startAction } from '../history/operation.ts'
+import { trackActivation } from '../activation/activation.ts'
 import type { PoolClient } from 'pg'
 import { decode, encode } from '../../db/codec.ts'
 import { tx } from '../../db/pool.ts'
@@ -18,34 +21,61 @@ export async function getRecord(table: TableName, id: unknown, userId: number) {
 
 export function createRecord(table: TableName, body: unknown, userId: number, client?: PoolClient) {
   const run = async (c: PoolClient) => {
+    await c.query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, userId])
     const data = encode(table, body)
+    await assertRefsOwned(table, data, userId, c)
     await hooks[table]?.beforeWrite?.(data, null, c, userId)
     await assertRefsOwned(table, data, userId, c)
     const created = await insertRow(table, data, userId, c)
     await hooks[table]?.afterCreate?.(created, c, userId)
+    if (table === 'tasks') await trackActivation(userId, 'first_task', c)
+    if (table === 'habits') await trackActivation(userId, 'first_habit', c)
+    if (table === 'reviews') await trackActivation(userId, 'first_review', c)
+    if (table === 'tasks' && created.status === 'done') await trackActivation(userId, 'first_completion', c)
     return decode(created)
   }
-  return client ? run(client) : tx(run)
+  return client
+    ? run(client)
+    : tx(async (c) => {
+        await startAction(userId, 'Создание: ' + recordLabels[table], c)
+        return run(c)
+      })
 }
 
-export function updateRecord(table: TableName, id: unknown, body: unknown, userId: number) {
-  return tx(async (c) => {
-    const prev = await getRow(table, id, userId, c)
+export function updateRecord(table: TableName, id: unknown, body: unknown, userId: number, client?: PoolClient) {
+  const run = async (c: PoolClient) => {
+    await c.query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, userId])
+    const prev = await getRow(table, id, userId, c, true)
     if (!prev) throw notFound()
     const data = encode(table, body, { partial: true })
+    await assertRefsOwned(table, data, userId, c)
     await hooks[table]?.beforeWrite?.(data, prev, c, userId)
     await assertRefsOwned(table, data, userId, c)
     const updated = Object.keys(data).length ? await patchRow(table, prev.id, data, userId, c) : prev
     await hooks[table]?.afterUpdate?.(updated, prev, c, userId)
+    if (table === 'tasks' && updated.status === 'done') await trackActivation(userId, 'first_completion', c)
     return decode(updated)
-  })
+  }
+  return client
+    ? run(client)
+    : tx(async (c) => {
+        await startAction(userId, 'Изменение: ' + recordLabels[table], c)
+        return run(c)
+      })
 }
 
-export function deleteRecord(table: TableName, id: unknown, userId: number) {
-  return tx(async (c) => {
-    const prev = await getRow(table, id, userId, c)
+export function deleteRecord(table: TableName, id: unknown, userId: number, client?: PoolClient) {
+  const run = async (c: PoolClient) => {
+    await c.query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, userId])
+    const prev = await getRow(table, id, userId, c, true)
     if (!prev) throw notFound()
     await removeRow(table, prev.id, userId, c)
     await hooks[table]?.afterDelete?.(prev, c, userId)
-  })
+  }
+  return client
+    ? run(client)
+    : tx(async (c) => {
+        await startAction(userId, 'Удаление: ' + recordLabels[table], c)
+        return run(c)
+      })
 }

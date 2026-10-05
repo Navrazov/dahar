@@ -78,6 +78,7 @@ export interface Settings {
   digest_hour?: number | null
   reminders_enabled?: boolean
   default_account_id?: number | null
+  onboarding_completed?: boolean
 }
 
 export interface FinanceSummary {

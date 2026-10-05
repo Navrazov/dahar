@@ -6,9 +6,9 @@ import { isDate } from '../../lib/time.ts'
 
 const isId = (id: unknown) => Number.isInteger(Number(id)) && Number(id) > 0 && Number(id) <= 2_147_483_647
 
-export async function getRow(table: TableName, id: unknown, userId: number, client?: Db): Promise<DbRow | undefined> {
+export async function getRow(table: TableName, id: unknown, userId: number, client?: Db, lock = false): Promise<DbRow | undefined> {
   if (!isId(id)) return undefined
-  const { rows } = await query(`SELECT * FROM ${q(table)} WHERE id = $1 AND user_id = $2`, [Number(id), userId], client)
+  const { rows } = await query(`SELECT * FROM ${q(table)} WHERE id = $1 AND user_id = $2${lock ? ' FOR UPDATE' : ''}`, [Number(id), userId], client)
   return rows[0]
 }
 
@@ -26,6 +26,10 @@ export async function listRows(table: TableName, userId: number, params: ListPar
     if (v === null) where.push(`${q(k)} IS NULL`)
     else add(`${q(k)} = ?`, v)
   }
+  if (params.before !== undefined) {
+    if (!isId(params.before)) throw badRequest('Неверный курсор списка')
+    add('id < ?', Number(params.before))
+  }
   const dc = dateColumn[table]
   if (dc && params.from !== undefined) {
     if (!isDate(params.from)) throw badRequest('from: ожидается дата ГГГГ-ММ-ДД')
@@ -35,7 +39,9 @@ export async function listRows(table: TableName, userId: number, params: ListPar
     if (!isDate(params.to)) throw badRequest('to: ожидается дата ГГГГ-ММ-ДД')
     add(`${q(dc)} < ?::date + 1`, params.to)
   }
-  const limit = Math.min(Math.max(Number(params.limit) || 0, 0), 5000)
+  for (const key of ['limit', 'offset'])
+    if (params[key] !== undefined && !/^\d{1,9}$/.test(String(params[key]))) throw badRequest(`${key}: ожидается неотрицательное целое число`)
+  const limit = Math.min(Math.max(Math.floor(Number(params.limit) || 500), 1), 5000)
   const offset = Math.max(Math.floor(Number(params.offset) || 0), 0)
   const { rows } = await query(
     `SELECT * FROM ${q(table)} WHERE ${where.join(' AND ')} ORDER BY id DESC${limit ? ` LIMIT ${limit} OFFSET ${offset}` : ''}`,

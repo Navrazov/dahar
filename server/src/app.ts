@@ -1,4 +1,8 @@
+import { activationRoutes } from './modules/activation/activation.ts'
+import { calendarRoutes } from './modules/calendar/calendar.routes.ts'
 import express from 'express'
+import { goalValueRoutes } from './modules/goals/goals.routes.ts'
+import { historyRoutes } from './modules/history/history.routes.ts'
 import type { Generate } from './modules/insights/insights.service.ts'
 import { apiNotFound, errorHandler, jsonBody, jsonOnly, securityHeaders } from './http/middleware.ts'
 import { mountFrontends } from './http/static.ts'
@@ -43,9 +47,13 @@ export function createApp(opts: AppOptions = {}) {
   api.use(requireUser)
   api.use('/telegram', telegramRoutes())
   api.use('/files', filesRoutes())
+  api.use('/calendar', calendarRoutes())
   api.use('/finance', financeRoutes())
   api.use('/habit-log', habitsRoutes())
   api.use('/settings', settingsRoutes())
+  api.use('/activation', activationRoutes())
+  api.use('/history', historyRoutes())
+  api.use('/goal-values', goalValueRoutes())
   api.use('/search', searchRoutes())
   api.use('/push', pushRoutes())
   api.use('/insights', insightsRoutes(opts.generateInsight))

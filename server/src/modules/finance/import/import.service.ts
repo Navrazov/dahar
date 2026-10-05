@@ -1,3 +1,4 @@
+import { startAction } from '../../history/operation.ts'
 import { createHash } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { encode } from '../../../db/codec.ts'
@@ -37,7 +38,7 @@ export async function parseStatement(buf: Buffer): Promise<{ bank: Bank; rows: P
 
 type KeyedRow = ParsedRow & { key: string }
 
-function withKeys(accountId: number, rows: ParsedRow[]): KeyedRow[] {
+function withKeys(accountId: number | string, rows: ParsedRow[]): KeyedRow[] {
   const seen = new Map<string, number>()
   return rows.map((r) => {
     const base = [accountId, r.date, r.time, r.kind, r.amount.toFixed(2), r.description.toLowerCase().replace(/\s+/g, ' ')].join('|')
@@ -85,7 +86,8 @@ export async function buildPreview(
   const { bank, rows: parsed } = Buffer.isBuffer(statement) ? await parseStatement(statement) : statement
   if (!parsed.length) throw badRequest('В файле не нашлось ни одной операции')
 
-  const rows = withKeys(accountId, parsed).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+  const account = await requireAccount(userId, accountId)
+  const rows = withKeys(account.import_identity || accountId, parsed).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
   const [dupes, rules, names] = await Promise.all([
     existingKeys(
       userId,
@@ -174,12 +176,13 @@ export interface ImportResult {
   skipped: number
 }
 
-export async function commitImport(userId: number, body: { account_id?: unknown; rows?: unknown } | undefined): Promise<ImportResult> {
+export async function commitImport(userId: number, body: { account_id?: unknown; rows?: unknown } | undefined, client?: PoolClient): Promise<ImportResult> {
   if (!Array.isArray(body?.rows) || !body.rows.length) throw badRequest('Нет операций для сохранения')
   if (body.rows.length > 5000) throw badRequest('Слишком много операций за раз')
   const rows = body.rows.map(cleanRow)
 
-  return tx(async (c) => {
+  const run = async (c: PoolClient) => {
+    await c.query('SELECT pg_advisory_xact_lock($1, $2)', [7262005, userId])
     const account = await requireAccount(userId, body.account_id, c)
     const result: ImportResult = { created: 0, transfers: 0, skipped: 0 }
     for (const r of rows) {
@@ -211,7 +214,13 @@ export async function commitImport(userId: number, body: { account_id?: unknown;
       if (r.learn && r.category && merchant) await saveRule(userId, r.kind, merchant, r.category, c)
     }
     return result
-  })
+  }
+  return client
+    ? run(client)
+    : tx(async (c) => {
+        await startAction(userId, 'Импорт выписки', c)
+        return run(c)
+      })
 }
 
 const bankNames: Record<Bank, RegExp | null> = { tbank: /т-?банк|тинькофф|tinkoff/i, sber: /сбер/i, csv: null }

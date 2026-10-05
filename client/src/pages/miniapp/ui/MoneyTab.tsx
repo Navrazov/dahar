@@ -26,7 +26,10 @@ function pickAccount(accounts: Account[], preferred: number | null | undefined) 
 function topCategories(txns: Txn[], kind: Kind) {
   const count = new Map<string, number>()
   for (const t of txns) if (t.kind === kind && t.category) count.set(t.category, (count.get(t.category) ?? 0) + 1)
-  return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c]) => c)
+  return [...count.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([c]) => c)
 }
 
 export function MoneyTab() {
@@ -54,7 +57,13 @@ export function MoneyTab() {
       return
     }
     const cat = category.trim()
-    await save.mutateAsync({ kind, amount, category: cat ? cat[0].toUpperCase() + cat.slice(1) : null, date: today, account_id: pickAccount(accounts, settings.default_account_id) })
+    await save.mutateAsync({
+      kind,
+      amount,
+      category: cat ? cat[0].toUpperCase() + cat.slice(1) : null,
+      date: today,
+      account_id: pickAccount(accounts, settings.default_account_id),
+    })
     haptic.success()
     toast.success(`${kind === 'expense' ? 'Расход' : 'Доход'} ${money(amount, cur, 2)}${cat ? ` · ${cat}` : ''}`)
     setAmountText('')
@@ -131,7 +140,13 @@ export function MoneyTab() {
           className="mt-3 h-11 w-full rounded-[12px] bg-surface-2 px-3.5 text-[16px] outline-none placeholder:text-fg-3 focus:ring-[3px] focus:ring-accent/15"
         />
 
-        <Button type="submit" variant={kind === 'expense' ? 'primary' : 'accent'} loading={save.isPending} disabled={!amount} className="mt-4 h-12 w-full rounded-[12px] text-[16px]">
+        <Button
+          type="submit"
+          variant={kind === 'expense' ? 'primary' : 'accent'}
+          loading={save.isPending}
+          disabled={!amount}
+          className="mt-4 h-12 w-full rounded-[12px] text-[16px]"
+        >
           Записать {kind === 'expense' ? 'расход' : 'доход'}
         </Button>
       </form>
@@ -165,7 +180,9 @@ function MonthStat({ label, value, cur, tone }: { label: string; value: number |
       {value == null ? (
         <Skeleton className="mt-1.5 h-6 w-24" />
       ) : (
-        <div className={clsx('mt-0.5 text-[20px] font-semibold tracking-[-0.02em] tabular', tone === 'good' && value > 0 && 'text-good')}>{money(value, cur)}</div>
+        <div className={clsx('mt-0.5 text-[20px] font-semibold tracking-[-0.02em] tabular', tone === 'good' && value > 0 && 'text-good')}>
+          {money(value, cur)}
+        </div>
       )}
     </div>
   )

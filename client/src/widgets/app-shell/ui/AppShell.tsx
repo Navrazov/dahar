@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { CloudOff, Menu, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { CloudOff, Menu, Plus, RefreshCw, Search, X, CalendarDays, CheckSquare, House, NotebookPen } from 'lucide-react'
 import { useConnection } from '@/shared/api'
 import { ErrorBoundary, Logo, PageReady, TopProgress } from '@/shared/ui'
 import { useDetectTimezone } from '../model/useDetectTimezone'
@@ -120,7 +120,7 @@ export function AppShell() {
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 
       <main className="lg:pl-[248px]">
-        <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+        <div className="mx-auto max-w-[1240px] px-4 pt-6 pb-24 lg:pb-10 sm:px-6 lg:px-10 lg:py-10">
           <ErrorBoundary key={pathname}>
             <PageReady>
               <Outlet />
@@ -128,6 +128,27 @@ export function AppShell() {
           </ErrorBoundary>
         </div>
       </main>
+      <nav
+        aria-label="Основные разделы"
+        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      >
+        {[
+          { to: '/', label: 'Сегодня', icon: House },
+          { to: '/tasks', label: 'Задачи', icon: CheckSquare },
+          { to: '/calendar', label: 'Календарь', icon: CalendarDays },
+          { to: '/review', label: 'Итоги', icon: NotebookPen },
+        ].map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) => `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] ${isActive ? 'text-accent' : 'text-fg-3'}`}
+          >
+            <item.icon size={20} />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

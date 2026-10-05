@@ -12,7 +12,11 @@ export interface Candidate {
 }
 
 export async function findAccount(userId: number, accountId: number, client?: Db) {
-  const { rows } = await query<{ id: number; name: string }>('SELECT id, name FROM accounts WHERE id = $1 AND user_id = $2', [accountId, userId], client)
+  const { rows } = await query<{ id: number; name: string; import_identity: string }>(
+    'SELECT id, name, import_identity FROM accounts WHERE id = $1 AND user_id = $2',
+    [accountId, userId],
+    client,
+  )
   return rows[0]
 }
 

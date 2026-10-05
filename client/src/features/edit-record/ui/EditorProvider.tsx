@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { api, useList, useSettings, type CollectionName } from '@/shared/api'
+import { api, invalidateCollection, useList, useSettings, type CollectionName } from '@/shared/api'
 import { money } from '@/shared/lib'
 import { Button, ConfirmButton, Modal } from '@/shared/ui'
 import { isEnabled } from '@/entities/module'
@@ -48,9 +48,10 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
   const cfg = entities[state.table]!
   const qc = useQueryClient()
   const settings = useSettings()
-  const products = useList('products')
+  const products = useList('products', state.table === 'sales')
   const [values, setValues] = useState<Values>(state.values)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [advanced, setAdvanced] = useState(!!state.values.id)
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState(false)
   const isEdit = !!values.id
@@ -79,7 +80,7 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
         data.end = String(data.end || data.start).slice(0, 10) + 'T23:59'
       }
       const row = id ? await api.update(state.table, id, data) : await api.create(state.table, data)
-      await refreshLists(qc)
+      await refreshLists(qc, state.table)
       toast.success(isEdit ? 'Сохранено' : `${cfg.title}: создано`)
       if (state.table === 'transactions' && data.kind === 'expense' && data.category)
         warnBudget(String(data.category), String(data.date || ''), settings.currency || '₽')
@@ -96,7 +97,7 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
     setRemoving(true)
     try {
       await api.remove(state.table, values.id)
-      await refreshLists(qc)
+      await refreshLists(qc, state.table)
       toast.success('Удалено')
       onClose()
     } catch (e) {
@@ -134,19 +135,24 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save()
         }}
       >
-        {visible.map((f, i) => (
-          <FieldControl
-            key={f.name}
-            field={f}
-            table={state.table}
-            settings={settings}
-            value={values[f.name]}
-            values={values}
-            error={errors[f.name]}
-            onChange={(v) => set(f.name, v)}
-            autoFocus={i === 0 && !isEdit}
-          />
-        ))}
+        {visible
+          .filter((f) => advanced || ['title', 'name', 'due_date', 'date', 'kind', 'amount', 'start', 'end', 'all_day'].includes(f.name) || f.required)
+          .map((f, i) => (
+            <FieldControl
+              key={f.name}
+              field={f}
+              table={state.table}
+              settings={settings}
+              value={values[f.name]}
+              values={values}
+              error={errors[f.name]}
+              onChange={(v) => set(f.name, v)}
+              autoFocus={i === 0 && !isEdit}
+            />
+          ))}
+        <button type="button" onClick={() => setAdvanced((v) => !v)} className="text-left text-[13px] text-fg-2 sm:col-span-2" aria-expanded={advanced}>
+          {advanced ? 'Скрыть дополнительные настройки' : 'Дополнительные настройки'}
+        </button>
         <button type="submit" hidden />
       </form>
     </Modal>
@@ -154,8 +160,8 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
 }
 
 /** Онлайн ждём свежие списки, чтобы окно закрылось с актуальными данными; офлайн — кэш уже поправлен очередью. */
-function refreshLists(qc: QueryClient) {
-  const refetch = qc.invalidateQueries()
+function refreshLists(qc: QueryClient, table: CollectionName) {
+  const refetch = invalidateCollection(qc, table)
   return navigator.onLine ? refetch : undefined
 }
 

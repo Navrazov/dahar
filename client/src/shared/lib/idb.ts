@@ -47,6 +47,56 @@ export const queue = {
   put: async (item: object) => void (await done((await store(STORES.outbox, 'readwrite')).put(item))),
   remove: async (seq: number) => void (await done((await store(STORES.outbox, 'readwrite')).delete(seq))),
   count: async () => done((await store(STORES.outbox, 'readonly')).count()),
+  complete: async (seq: number, mapKey: string, ids: Record<string, number>) => {
+    const db = await open()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORES.kv, STORES.outbox], 'readwrite')
+      tx.objectStore(STORES.kv).put(ids, mapKey)
+      tx.objectStore(STORES.outbox).delete(seq)
+      tx.oncomplete = () => resolve()
+      tx.onabort = tx.onerror = () => reject(tx.error)
+    })
+  },
+  withLease: async <T>(run: () => Promise<T>): Promise<T> => {
+    const token = crypto.randomUUID()
+    const claim = async () => {
+      const db = await open()
+      return new Promise<boolean>((resolve, reject) => {
+        const tx = db.transaction(STORES.kv, 'readwrite')
+        const st = tx.objectStore(STORES.kv)
+        const req = st.get('sync-lease')
+        let acquired = false
+        req.onsuccess = () => {
+          if (!req.result || req.result.expires < Date.now() || req.result.token === token) {
+            st.put({ token, expires: Date.now() + 60000 }, 'sync-lease')
+            acquired = true
+          }
+        }
+        tx.oncomplete = () => resolve(acquired)
+        tx.onabort = tx.onerror = () => reject(tx.error)
+      })
+    }
+    if (!(await claim())) throw new Error('Изменения отправляются в другой вкладке')
+    const timer = setInterval(() => {
+      claim().catch(() => {})
+    }, 10000)
+    try {
+      return await run()
+    } finally {
+      clearInterval(timer)
+      const db = await open()
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORES.kv, 'readwrite')
+        const st = tx.objectStore(STORES.kv)
+        const req = st.get('sync-lease')
+        req.onsuccess = () => {
+          if (req.result?.token === token) st.delete('sync-lease')
+        }
+        tx.oncomplete = () => resolve()
+        tx.onabort = tx.onerror = () => reject(tx.error)
+      })
+    }
+  },
   clear: async () => void (await done((await store(STORES.outbox, 'readwrite')).clear())),
 }
 

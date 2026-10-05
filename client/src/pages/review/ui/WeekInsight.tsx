@@ -1,3 +1,6 @@
+import { addDays, parseISO } from 'date-fns'
+import { useEditor } from '@/features/edit-record'
+import { ymd } from '@/shared/lib'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { RefreshCw, Sparkles } from 'lucide-react'
@@ -5,21 +8,30 @@ import { api, type WeeklyInsight } from '@/shared/api'
 import { relDate } from '@/shared/lib'
 import { Button, Card, CardHeader, Skeleton } from '@/shared/ui'
 
-function List({ title, items }: { title: string; items: string[] }) {
+function List({ title, items, add }: { title: string; items: string[]; add?: (text: string) => void }) {
   if (!items.length) return null
   return (
     <div>
       <div className="mb-1 text-[12.5px] font-medium text-fg-3">{title}</div>
       <ul className="list-disc space-y-1 pl-5 text-[14px]">
         {items.map((it, i) => (
-          <li key={i}>{it}</li>
+          <li key={i}>
+            {it}
+            {add && (
+              <Button size="sm" variant="ghost" onClick={() => add(it)}>
+                В план
+              </Button>
+            )}
+          </li>
         ))}
       </ul>
     </div>
   )
 }
 
-function Body({ insight }: { insight: WeeklyInsight }) {
+function Body({ insight, week }: { insight: WeeklyInsight; week: string }) {
+  const edit = useEditor()
+  const add = (text: string) => edit('tasks', { title: text.slice(0, 200), description: text, due_date: ymd(addDays(parseISO(week), 7)), status: 'todo' })
   return (
     <div className="space-y-4 text-[14px] leading-relaxed">
       <p>{insight.summary}</p>
@@ -37,7 +49,7 @@ function Body({ insight }: { insight: WeeklyInsight }) {
           <p>{insight.habits}</p>
         </div>
       </div>
-      <List title="Шаги на следующую неделю" items={insight.next_week} />
+      <List title="Шаги на следующую неделю" items={insight.next_week} add={add} />
     </div>
   )
 }
@@ -79,7 +91,7 @@ export function WeekInsight({ week }: { week: string }) {
             <Skeleton className="h-4 w-1/2" />
           </div>
         ) : insight ? (
-          <Body insight={insight} />
+          <Body insight={insight} week={week} />
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3 text-[13.5px] text-fg-2">
             <p className="max-w-xl">

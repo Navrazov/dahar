@@ -43,7 +43,10 @@ test('bare amounts become money, times and verbs stay tasks', () => {
 test('mini app initData signature', () => {
   const token = '123:ABC'
   const sign = (fields: Record<string, string>) => {
-    const check = Object.entries(fields).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('\n')
+    const check = Object.entries(fields)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n')
     const secret = createHmac('sha256', 'WebAppData').update(token).digest()
     return new URLSearchParams({ ...fields, hash: createHmac('sha256', secret).update(check).digest('hex') }).toString()
   }

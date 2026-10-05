@@ -27,12 +27,16 @@ export function useSetSetting() {
       return () => qc.setQueryData(SETTINGS_KEY, prev)
     },
     onError: (_e, _v, rollback) => rollback?.(),
-    onSettled: () => qc.invalidateQueries({ queryKey: SETTINGS_KEY }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['history'] })
+      qc.invalidateQueries({ queryKey: ['goal-values'] })
+      return qc.invalidateQueries({ queryKey: SETTINGS_KEY })
+    },
   })
 }
 
-export function useFinanceSummary(month: string) {
-  const { data } = useQuery({ queryKey: [...collectionKey('transactions'), 'summary', month], queryFn: () => api.financeSummary(month) })
+export function useFinanceSummary(month: string, enabled = true) {
+  const { data } = useQuery({ queryKey: [...collectionKey('transactions'), 'summary', month], enabled, queryFn: () => api.financeSummary(month) })
   return data
 }
 
@@ -46,6 +50,9 @@ export function useHabitLog() {
         return v.status ? [...rest, { id: -Date.now(), habit_id: v.habit_id, date: v.date, status: v.status } as HabitLog] : rest
       }),
     onError: (_e, _v, rollback) => rollback?.(),
-    onSettled: () => qc.invalidateQueries({ queryKey: collectionKey('habit_logs') }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['history'] })
+      return qc.invalidateQueries({ queryKey: collectionKey('habit_logs') })
+    },
   })
 }

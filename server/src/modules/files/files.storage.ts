@@ -34,13 +34,19 @@ export const storageLabel = () => (config.s3 ? `s3://${config.s3.bucket}` : 'pos
 
 export const fileUrl = (id: string) => `/api/files/${id}`
 
-export async function storeFile(userId: number, dataUrl: unknown, client?: Db) {
+export function validateFile(dataUrl: unknown) {
   const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''))
   if (!m) throw badRequest('Ожидается изображение в формате data URL')
   const mime = m[1]
   if (!ALLOWED.has(mime)) throw badRequest('Поддерживаются JPG, PNG, WebP и GIF')
   const buf = Buffer.from(m[2], 'base64')
+  if (!buf.length) throw badRequest('Файл пустой')
   if (buf.length > MAX_BYTES) throw badRequest('Файл больше 8 МБ')
+  return { mime, buf }
+}
+
+export async function storeFile(userId: number, dataUrl: unknown, client?: Db) {
+  const { mime, buf } = validateFile(dataUrl)
 
   const store = await s3()
   if (!store) {
@@ -54,9 +60,9 @@ export async function storeFile(userId: number, dataUrl: unknown, client?: Db) {
   return fileUrl(rows[0].id)
 }
 
-export async function readFile(userId: number, id: string): Promise<{ mime: string; body: Buffer } | null> {
+export async function readFile(userId: number, id: string, client?: Db): Promise<{ mime: string; body: Buffer } | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null
-  const { rows } = await query('SELECT mime, data, storage_key FROM files WHERE id = $1 AND user_id = $2', [id, userId])
+  const { rows } = await query('SELECT mime, data, storage_key FROM files WHERE id = $1 AND user_id = $2', [id, userId], client)
   const f = rows[0]
   if (!f) return null
   if (f.data) return { mime: f.mime, body: f.data }
@@ -67,8 +73,8 @@ export async function readFile(userId: number, id: string): Promise<{ mime: stri
   return { mime: f.mime, body: Buffer.from(await obj.Body.transformToByteArray()) }
 }
 
-export async function fileAsDataUrl(userId: number, url: string) {
-  const f = await readFile(userId, String(url).split('/').pop() ?? '')
+export async function fileAsDataUrl(userId: number, url: string, client?: Db) {
+  const f = await readFile(userId, String(url).split('/').pop() ?? '', client)
   return f ? `data:${f.mime};base64,${f.body.toString('base64')}` : null
 }
 

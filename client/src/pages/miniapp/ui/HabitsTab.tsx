@@ -20,7 +20,7 @@ export function HabitsTab() {
   const active = habits.filter((h) => !h.archived && habitStart(h) <= today)
   const due = active.filter((h) => h.kind === 'quit' || isScheduled(h, now))
   const status = new Map(logs.filter((l) => l.date === today).map((l) => [l.habit_id, l.status]))
-  const doneCount = due.filter((h) => (h.kind === 'quit' ? status.get(h.id) !== 'slip' : status.get(h.id) === 'done')).length
+  const doneCount = due.filter((h) => status.get(h.id) === 'done').length
 
   if (!loaded) {
     return (
@@ -62,22 +62,31 @@ export function HabitsTab() {
   )
 }
 
-const countWeek = (logs: HabitLog[], id: number, from: string, to: string) => logs.filter((l) => l.habit_id === id && l.status === 'done' && l.date >= from && l.date <= to).length
+const countWeek = (logs: HabitLog[], id: number, from: string, to: string) =>
+  logs.filter((l) => l.habit_id === id && l.status === 'done' && l.date >= from && l.date <= to).length
 
 function HabitRow({ habit, status, weekDone }: { habit: Habit; status: string | undefined; weekDone: number }) {
   const log = useHabitLog()
   const quit = habit.kind === 'quit'
   const color = habit.color || 'var(--good)'
-  const on = quit ? status === 'slip' : status === 'done'
+  const on = status === 'slip' || status === 'done'
 
   const toggle = () => {
     if (quit) haptic.tap()
     else if (!on) haptic.success()
     else haptic.tap()
-    log.mutate({ habit_id: habit.id, date: todayStr(), status: on ? null : quit ? 'slip' : 'done' })
+    log.mutate({ habit_id: habit.id, date: todayStr(), status: quit ? (status === 'done' ? 'slip' : status === 'slip' ? null : 'done') : on ? null : 'done' })
   }
 
-  const sub = quit ? (on ? 'Сегодня был срыв' : 'Держусь — нажмите, если сорвались') : habit.frequency === 'weekly' ? `${weekDone} из ${habit.per_week || 1} на этой неделе` : freqText(habit)
+  const sub = quit
+    ? status === 'slip'
+      ? 'Срыв — нажмите, чтобы снять отметку'
+      : status === 'done'
+        ? 'Держусь — нажмите, если сорвались'
+        : 'Нет отметки — нажмите, если держитесь'
+    : habit.frequency === 'weekly'
+      ? `${weekDone} из ${habit.per_week || 1} на этой неделе`
+      : freqText(habit)
 
   return (
     <button type="button" onClick={toggle} className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-hover">
@@ -86,13 +95,15 @@ function HabitRow({ habit, status, weekDone }: { habit: Habit; status: string | 
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-200',
           on ? 'border-transparent text-white animate-[check-in_280ms_var(--ease-out)]' : 'border-line-strong',
         )}
-        style={on ? { background: quit ? 'var(--bad)' : color } : quit ? { borderColor: `color-mix(in srgb, ${color} 55%, transparent)` } : undefined}
+        style={
+          on ? { background: status === 'slip' ? 'var(--bad)' : color } : quit ? { borderColor: `color-mix(in srgb, ${color} 55%, transparent)` } : undefined
+        }
       >
-        {on && (quit ? <X size={18} strokeWidth={2.6} /> : <Check size={18} strokeWidth={3} />)}
+        {on && (status === 'slip' ? <X size={18} strokeWidth={2.6} /> : <Check size={18} strokeWidth={3} />)}
       </span>
       <span className="min-w-0 flex-1">
         <span className={clsx('block truncate text-[16px] leading-snug', on && !quit && 'text-fg-2')}>{habit.name}</span>
-        <span className={clsx('block truncate text-[13px]', quit && on ? 'text-bad' : 'text-fg-3')}>{sub}</span>
+        <span className={clsx('block truncate text-[13px]', status === 'slip' ? 'text-bad' : 'text-fg-3')}>{sub}</span>
       </span>
     </button>
   )

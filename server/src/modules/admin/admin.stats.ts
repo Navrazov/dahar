@@ -14,7 +14,7 @@ const pkg = JSON.parse(readFileSync(new URL('../../../package.json', import.meta
 export const MODULES = [
   { key: 'habits', default: true },
   { key: 'finance', default: true },
-  { key: 'calculator', default: true },
+  { key: 'calculator', default: false },
   { key: 'partners', default: false },
   { key: 'trading', default: false },
   { key: 'business', default: false },
@@ -39,7 +39,7 @@ const dayExpr = (col: string) => `to_char(${col} AT TIME ZONE '${zone}', 'YYYY-M
 
 export async function overview() {
   const d = today()
-  const [totals, collections, signups, active, created, modules] = await Promise.all([
+  const [totals, collections, signups, active, created, modules, activation] = await Promise.all([
     query(
       `SELECT
          (SELECT count(*) FROM users)::int AS users,
@@ -68,6 +68,7 @@ export async function overview() {
       `SELECT ${dayExpr('created_at')} AS day, count(*) AS n FROM (${allRecordsSql('created_at')}) x WHERE created_at > now() - interval '90 days' GROUP BY 1`,
     ),
     query(`SELECT s.value FROM users u LEFT JOIN settings s ON s.user_id = u.id AND s.key = 'modules'`),
+    query('SELECT event,count(*)::int AS users FROM product_events GROUP BY event'),
   ])
 
   const adoption = MODULES.map((m) => ({
@@ -83,6 +84,7 @@ export async function overview() {
     totals: { ...totals.rows[0], records: collections.rows.reduce((a, r) => a + r.total, 0), records7: collections.rows.reduce((a, r) => a + r.week, 0) },
     collections: collections.rows,
     adoption,
+    activation: activation.rows,
     daily: signupSeries.map((s, i) => ({ day: s.day, signups: s.value, active: activeSeries[i].value, records: createdSeries[i].value })),
   }
 }

@@ -5,6 +5,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { Toaster, toast } from 'sonner'
 import { ApiError } from '@/shared/api'
 import { idbAvailable, kv } from '@/shared/lib'
+import { SyncStatus } from './SyncStatus'
 import { OfflineSync } from './OfflineSync'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -61,6 +62,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     >
       <Toaster position="bottom-right" theme="system" closeButton toastOptions={{ className: 'text-[13.5px] font-sans' }} style={{ zIndex: 80 }} />
       <OfflineSync />
+      <SyncStatus />
       {children}
     </PersistQueryClientProvider>
   )

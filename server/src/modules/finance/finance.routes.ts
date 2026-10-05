@@ -1,3 +1,4 @@
+import { operation } from '../history/operation.ts'
 import { Router } from 'express'
 import { userNow } from '../settings/settings.repository.ts'
 import { financeSummary } from './finance.service.ts'
@@ -12,7 +13,7 @@ export function financeRoutes() {
   })
 
   r.post('/import/preview', async (req, res) => res.json(await previewImport(req.user.id, req.body)))
-  r.post('/import', async (req, res) => res.json(await commitImport(req.user.id, req.body)))
+  r.post('/import', async (req, res) => operation(req, res, 'Импорт выписки', (c) => commitImport(req.user.id, req.body, c)))
 
   return r
 }

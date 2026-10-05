@@ -1,3 +1,4 @@
+import { CalendarExchange } from './CalendarExchange'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { addDays, addMonths, addWeeks, endOfMonth, endOfISOWeek, format, isSameMonth, isToday, startOfISOWeek, startOfMonth } from 'date-fns'
@@ -149,6 +150,7 @@ export function CalendarPage() {
         title="Календарь"
         actions={
           <>
+            <CalendarExchange />
             <ProjectFilter value={project} onChange={setProject} />
             <Segmented
               value={view}

@@ -4,11 +4,13 @@ import { setDefaultOptions } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster, toast } from 'sonner'
+import { setOfflineEnabled } from '@/shared/api'
 import { ApiError } from '@/shared/api'
 import { haptic, initMonitoring, syncTelegramTheme } from '@/shared/lib'
 import { MiniApp } from '@/pages/miniapp'
 import './styles/index.css'
 
+setOfflineEnabled(false)
 setDefaultOptions({ locale: ru, weekStartsOn: 1 })
 initMonitoring()
 syncTelegramTheme()

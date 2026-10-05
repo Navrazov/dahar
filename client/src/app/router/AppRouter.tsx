@@ -61,6 +61,7 @@ export function AppRouter() {
             <Route path="partners" element={gated('partners', <PartnersPage />)} />
             <Route path="trading" element={gated('trading', <TradingPage />)} />
             <Route path="business" element={gated('business', <BusinessPage />)} />
+            <Route path="finance/calculator" element={gated('finance', <CalculatorPage />)} />
             <Route path="finance" element={gated('finance', <FinancePage />)} />
             <Route path="calculator" element={gated('calculator', <CalculatorPage />)} />
             <Route path="settings" element={view(<SettingsPage />)} />

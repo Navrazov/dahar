@@ -19,6 +19,8 @@ import {
   Textarea,
   TimePicker,
 } from '@/shared/ui'
+import { isEnabled } from '@/entities/module'
+import type { ModuleKey } from '@/shared/api'
 import type { Field, Values } from '../config/forms'
 
 function resolveSuffix(s: string | undefined, settings: Settings) {
@@ -53,7 +55,7 @@ export function FieldControl({
       group={group}
       label={f.label + (f.required ? ' *' : '')}
       className={clsx(wide && 'sm:col-span-2', error && '[&_input]:border-bad [&_button]:border-bad')}
-      hint={error ? <span className="text-bad">{error}</span> : undefined}
+      hint={error ? <span className="text-bad">{error}</span> : f.hint}
     >
       {node}
     </FieldLabel>
@@ -80,7 +82,15 @@ export function FieldControl({
     case 'datetime':
       return wrap(<DateTimePicker value={value} onChange={onChange} dateOnly={!!values.all_day} />)
     case 'select':
-      return wrap(<Select value={value} onChange={onChange} options={f.options!.map((o) => ({ value: o.value, label: o.label }))} />)
+      return wrap(
+        <Select
+          value={value}
+          onChange={onChange}
+          options={f
+            .options!.filter((o) => o.value === value || !('module' in o) || !o.module || isEnabled(settings, o.module as ModuleKey))
+            .map((o) => ({ value: o.value, label: o.label }))}
+        />,
+      )
     case 'ref':
       return wrap(<RefSelect field={f} value={value} values={values} onChange={onChange} />)
     case 'phone':

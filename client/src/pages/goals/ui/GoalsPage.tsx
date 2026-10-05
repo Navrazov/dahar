@@ -50,7 +50,7 @@ export function GoalsPage() {
         <Card>
           <Empty
             title="Целей пока нет"
-            hint="Например: «Привлечь 10 активных партнёров» с целевым значением 10"
+            hint="Например: «Прочитать 12 книг» с целевым значением 12"
             action={
               <Button variant="primary" icon={Plus} onClick={() => edit('goals')}>
                 Создать цель

@@ -1,3 +1,4 @@
+import { tableOrder } from '@dahar/shared'
 import { idbAvailable, kv, queue } from '../lib/idb'
 
 /**
@@ -15,6 +16,8 @@ export interface OutboxItem {
   method: string
   body?: string
   tempId?: number
+  operationKey: string
+  error?: string
   createdAt: number
 }
 
@@ -27,10 +30,20 @@ export type OutboxChange =
 export const OUTBOX_EVENT = 'dahar:outbox'
 
 /** Что можно откладывать: записи коллекций, отметки привычек и настройки. Вход, файлы и импорт — только онлайн. */
+let offlineEnabled = true
+export const setOfflineEnabled = (enabled: boolean) => {
+  offlineEnabled = enabled
+}
 const QUEUEABLE =
   /^\/api\/((?!auth|admin|files|finance|restore|backup|search|telegram|client-errors|habit-log|settings)[a-z_]+)(\/-?\d+)?$|^\/api\/(habit-log|settings\/[a-z_]+)$/
 
-export const isQueueable = (url: string, method: string) => method !== 'GET' && idbAvailable() && QUEUEABLE.test(url)
+export const isQueueable = (url: string, method: string) =>
+  offlineEnabled &&
+  owner !== null &&
+  method !== 'GET' &&
+  idbAvailable() &&
+  ((QUEUEABLE.test(url) && (tableOrder.includes(url.split('/')[2] as never) || url.startsWith('/api/settings/') || url === '/api/habit-log')) ||
+    url === '/api/tasks/bulk')
 
 let owner: number | null = null
 
@@ -38,6 +51,8 @@ let owner: number | null = null
 export const setOutboxOwner = (userId: number | null) => {
   owner = userId
 }
+
+export const getOutboxOwner = () => owner
 
 let tempSeq = 0
 const newTempId = () => -(Date.now() * 100 + (tempSeq++ % 100))
@@ -51,7 +66,7 @@ function notify(change: OutboxChange, pending?: number) {
 export async function pendingCount() {
   if (!idbAvailable()) return 0
   try {
-    return await queue.count()
+    return (await queue.all<OutboxItem>()).filter((x) => !x.error && x.owner === owner).length
   } catch {
     return 0
   }
@@ -65,7 +80,14 @@ export async function enqueue<T>(url: string, init: RequestInit): Promise<T> {
   const m = /^\/api\/([a-z_]+)(?:\/(-?\d+))?$/.exec(url)
   const table = m?.[1] ?? ''
   const id = m?.[2] ? Number(m[2]) : undefined
-  const item: OutboxItem = { url, method, body, owner, createdAt: Date.now() }
+  const item: OutboxItem = {
+    url,
+    method,
+    body,
+    owner,
+    operationKey: new Headers(init.headers).get('Idempotency-Key') || crypto.randomUUID(),
+    createdAt: Date.now(),
+  }
 
   let result: unknown = { ok: true }
   let change: OutboxChange = { kind: 'other' }
@@ -87,59 +109,100 @@ export async function enqueue<T>(url: string, init: RequestInit): Promise<T> {
   return result as T
 }
 
-function remapIds(text: string, ids: Map<number, number>) {
-  return text.replace(/-\d{6,}/g, (s) => String(ids.get(Number(s)) ?? s))
+/** Only identity fields are remapped; descriptions and negative amounts are untouched. */
+export function remapBody(body: string | undefined, ids: Map<number, number>) {
+  if (!body) return undefined
+  const data = JSON.parse(body) as Record<string, unknown>
+  for (const [key, value] of Object.entries(data))
+    if ((key === 'id' || key.endsWith('_id')) && typeof value === 'number' && ids.has(value)) data[key] = ids.get(value)
+  if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) data.data = JSON.parse(remapBody(JSON.stringify(data.data), ids)!)
+  if (Array.isArray(data.ids)) data.ids = data.ids.map((id) => (typeof id === 'number' ? (ids.get(id) ?? id) : id))
+  return JSON.stringify(data)
 }
 
 let flushing: Promise<FlushResult> | null = null
-
 export interface FlushResult {
   sent: number
   failed: { url: string; message: string }[]
   remaining: number
 }
+export async function failedChanges() {
+  return (await queue.all<OutboxItem>()).filter((x) => x.owner === owner && x.error)
+}
+export async function retryChange(seq: number, body?: string) {
+  const item = (await failedChanges()).find((x) => x.seq === seq)
+  if (!item) return
+  await queue.put({ ...item, error: undefined, ...(body ? { body } : {}) })
+  notify({ kind: 'other' }, await pendingCount())
+}
+export async function discardChange(seq: number) {
+  const item = (await failedChanges()).find((x) => x.seq === seq)
+  if (item) await queue.remove(seq)
+  notify({ kind: 'other' }, await pendingCount())
+}
 
-/** Отправляет очередь по порядку. Сетевая ошибка — останавливаемся и ждём; ответ 4xx — запись снимается с очереди. */
 export function flushOutbox(): Promise<FlushResult> {
-  flushing ??= (async () => {
+  if (flushing) return flushing
+  const run = async () => {
     const result: FlushResult = { sent: 0, failed: [], remaining: 0 }
-    if (!idbAvailable() || owner === null) return result
-    const ids = new Map<number, number>(Object.entries((await kv.get<Record<string, number>>(ID_MAP_KEY)) ?? {}).map(([k, v]) => [Number(k), v]))
-    const items = (await queue.all<OutboxItem>()).sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
-    for (const item of items) {
-      if (item.owner !== owner) {
-        // Осталось от другого аккаунта на этом устройстве — не отправляем.
-        await queue.remove(item.seq!)
-        continue
+    const user = owner
+    if (!idbAvailable() || user === null) return result
+    const mapKey = `${ID_MAP_KEY}:${user}`
+    const ids = new Map<number, number>(Object.entries((await kv.get<Record<string, number>>(mapKey)) ?? {}).map(([k, v]) => [Number(k), v]))
+    for (const item of (await queue.all<OutboxItem>()).sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))) {
+      if (item.owner !== user) continue
+      if (item.error) break
+      if (owner !== user) break
+      const url = item.url.replace(/\/(-\d+)$/, (_m, id: string) => `/${ids.get(Number(id)) ?? id}`)
+      let body = remapBody(item.body, ids)
+      if (body && (/^\/api\/settings\/[a-z_]+_project_id$/.test(item.url) || item.url === '/api/settings/default_account_id')) {
+        const data = JSON.parse(body)
+        if (typeof data.value === 'number') data.value = ids.get(data.value) ?? data.value
+        body = JSON.stringify(data)
       }
-      const url = remapIds(item.url, ids)
-      const body = item.body ? remapIds(item.body, ids) : undefined
       let res: Response
       try {
-        res = await fetch(url, { method: item.method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : undefined, body })
+        res = await fetch(url, {
+          method: item.method,
+          credentials: 'same-origin',
+          headers: {
+            ...(body ? { 'Content-Type': 'application/json' } : {}),
+            'X-Dahar-User': String(user),
+            'Idempotency-Key': item.operationKey || `legacy-${user}-${item.seq}-${item.createdAt}`,
+          },
+          body,
+          signal: AbortSignal.timeout(15000),
+        })
       } catch {
         break
       }
-      if (res.status === 401) break
-      if (res.status >= 500) break
+      if (res.status === 401) {
+        if (owner === user) window.dispatchEvent(new Event('auth:expired'))
+        break
+      }
+      if (res.status === 429 || res.status >= 500) break
       if (res.ok) {
         if (item.tempId !== undefined) {
-          const created = await res.json().catch(() => null)
-          if (created?.id) ids.set(item.tempId, created.id)
+          const row = await res.json().catch(() => null)
+          if (row?.id) ids.set(item.tempId, row.id)
         }
+        // Mapping and removal must commit together, even if a tab crashes between requests.
+        await queue.complete(item.seq!, mapKey, Object.fromEntries(ids))
         result.sent++
       } else {
         const message = (await res.json().catch(() => ({})))?.error || `Ошибка ${res.status}`
+        await queue.put({ ...item, error: message })
         result.failed.push({ url, message })
+        // Dependent operations stay intact until this one is corrected or discarded.
+        break
       }
-      await queue.remove(item.seq!)
     }
-    await kv.set(ID_MAP_KEY, Object.fromEntries(ids))
     result.remaining = await pendingCount()
-    if (!result.remaining) await kv.del(ID_MAP_KEY)
     notify({ kind: 'other' }, result.remaining)
     return result
-  })().finally(() => {
+  }
+  const locked = () => (navigator.locks ? navigator.locks.request('dahar-outbox', run) : queue.withLease(run))
+  flushing = locked().finally(() => {
     flushing = null
   })
   return flushing

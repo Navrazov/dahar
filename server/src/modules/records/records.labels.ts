@@ -1,0 +1,23 @@
+import type { TableName } from '../../db/schema.ts'
+export const recordLabels: Record<TableName, string> = {
+  projects: 'Проект',
+  goals: 'Цель',
+  partners: 'Партнёр',
+  partner_reports: 'Отчёт партнёра',
+  tasks: 'Задача',
+  events: 'Событие',
+  habits: 'Привычка',
+  habit_logs: 'Отметка привычки',
+  partner_interactions: 'Контакт с партнёром',
+  trades: 'Сделка',
+  trading_topics: 'Тема трейдинга',
+  accounts: 'Счёт',
+  transactions: 'Операция',
+  budgets: 'Бюджет',
+  products: 'Товар',
+  customers: 'Клиент',
+  sales: 'Продажа',
+  biz_expenses: 'Расход бизнеса',
+  content: 'Контент',
+  reviews: 'Итоги недели',
+}

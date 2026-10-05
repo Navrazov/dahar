@@ -72,12 +72,12 @@ export function habitStats(h: Habit, logs: HabitLog[]): HabitStats {
   const today = new Date()
   const days = start > today ? [] : eachDayOfInterval({ start, end: today })
   const quit = h.kind === 'quit'
-  const ok = (d: Date) => (quit ? mine.get(ymd(d)) !== 'slip' : mine.get(ymd(d)) === 'done')
-  const doneToday = quit ? mine.get(todayStr()) !== 'slip' : mine.get(todayStr()) === 'done'
+  const ok = (d: Date) => mine.get(ymd(d)) === 'done'
+  const doneToday = mine.get(todayStr()) === 'done'
 
   if (h.frequency === 'weekly' && !quit) return weeklyStats(h, days, ok, doneToday)
 
-  const scheduled = days.filter((d) => isScheduled(h, d))
+  const scheduled = days.filter((d) => quit || isScheduled(h, d))
   const rateOf = (ds: Date[]) => {
     const counted = ds.filter((d) => ymd(d) !== todayStr() || ok(d))
     return counted.length ? counted.filter(ok).length / counted.length : 0

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { addMonths, endOfMonth, format, parseISO } from 'date-fns'
@@ -40,6 +41,9 @@ export function FinancePage() {
               ]}
             />
             <ImportStatementButton />
+            <Link to="/finance/calculator">
+              <Button>Калькулятор накоплений</Button>
+            </Link>
             <Button icon={Plus} onClick={() => edit(tab === 'budgets' ? 'budgets' : 'accounts')}>
               {tab === 'budgets' ? 'Бюджет' : 'Счёт'}
             </Button>

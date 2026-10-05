@@ -1,3 +1,4 @@
+import { Onboarding } from './Onboarding'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
@@ -64,13 +65,13 @@ export function DashboardPage() {
   const events = useList('events')
   const projects = useList('projects')
   const goals = useList('goals')
-  const habits = useList('habits').filter((h) => !h.archived)
-  const logs = useList('habit_logs')
-  const partners = useList('partners')
-  const partnerReports = useList('partner_reports')
-  const trades = useList('trades')
-  const sales = useList('sales')
-  const bizExp = useList('biz_expenses')
+  const habits = useList('habits', isEnabled(settings, 'habits')).filter((h) => !h.archived)
+  const logs = useList('habit_logs', isEnabled(settings, 'habits'))
+  const partners = useList('partners', isEnabled(settings, 'partners'))
+  const partnerReports = useList('partner_reports', isEnabled(settings, 'partners'))
+  const trades = useList('trades', isEnabled(settings, 'trading'))
+  const sales = useList('sales', isEnabled(settings, 'business'))
+  const bizExp = useList('biz_expenses', isEnabled(settings, 'business'))
   const projectMap = byId(projects)
   const logMap = useLogMap(logs)
 
@@ -95,7 +96,7 @@ export function DashboardPage() {
     .filter((p) => p.next_action && p.next_action_date && p.next_action_date <= soon)
     .sort((a, b) => a.next_action_date!.localeCompare(b.next_action_date!))
 
-  const summary = useFinanceSummary(month)
+  const summary = useFinanceSummary(month, isEnabled(settings, 'finance'))
   const income = summary?.income ?? 0
   const expense = summary?.expense ?? 0
   const biz = businessMonth(sales, bizExp, month)
@@ -103,7 +104,7 @@ export function DashboardPage() {
   const monthPnl = sum(trades.filter((t) => t.pnl != null && monthKey(t.date) === month).map(netPnl))
 
   const on = (k: ModuleKey) => isEnabled(settings, k)
-  const isEmpty = !projects.length && !tasks.length && !habits.length
+  const focus = tasks.filter((t) => t.focus_date === today && t.status !== 'done').slice(0, 3)
 
   const summaryLine = [
     todays.length
@@ -122,14 +123,14 @@ export function DashboardPage() {
       tone: overdue ? 'bad' : null,
     },
   ]
-  if (on('habits'))
+  if (on('habits') && dueHabits.length)
     metrics.push({
       to: '/habits',
       label: 'Привычки',
       value: `${habitsDone} из ${dueHabits.length}`,
       sub: dueHabits.length ? `${pct(habitsDone / dueHabits.length)} на сегодня` : 'не заведены',
     })
-  if (on('finance'))
+  if (on('finance') && ((summary?.balances.length ?? 0) > 0 || income || expense))
     metrics.push({
       to: '/finance',
       label: 'Деньги за месяц',
@@ -163,10 +164,12 @@ export function DashboardPage() {
     })
   }
 
-  const addQuick = () => {
+  const addQuick = async () => {
     if (!quick.trim()) return
-    saveTask.mutate({ title: quick.trim(), due_date: today, status: 'todo', priority: 'medium' })
-    setQuick('')
+    try {
+      await saveTask.mutateAsync({ title: quick.trim(), due_date: today, status: 'todo', priority: 'medium' })
+      setQuick('')
+    } catch {}
   }
 
   return (
@@ -179,35 +182,35 @@ export function DashboardPage() {
         </p>
       </header>
 
-      {isEmpty && (
-        <Card className="mb-8 flex flex-wrap items-center justify-between gap-4 p-5">
-          <div className="min-w-0 max-w-xl">
-            <div className="text-[15px] font-semibold">С чего начать</div>
-            <p className="mt-1 text-[14px] text-fg-2">
-              Подключите нужные направления и заведите первый проект. Или загрузите пример в настройках, чтобы посмотреть, как всё связано.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/settings#modules">
-              <Button>Направления</Button>
-            </Link>
-            <Button variant="primary" icon={Plus} onClick={() => edit('projects')}>
-              Проект
-            </Button>
-          </div>
-        </Card>
-      )}
+      <Onboarding />
 
       <MetricStrip items={metrics} />
 
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="space-y-5">
+          {!!focus.length && (
+            <Card>
+              <CardHeader title="Главное на сегодня" sub="до трёх задач" />
+              <TaskList tasks={focus} />
+            </Card>
+          )}
+          {!focus.length && !!todays.length && (
+            <Card className="p-4">
+              <p className="text-[14px] font-medium">Выберите главное на сегодня</p>
+              <p className="mt-1 text-[13px] text-fg-2">Нажмите на звезду у 1–3 задач — они появятся здесь отдельно от остальных дел.</p>
+            </Card>
+          )}
           <Card>
-            <CardHeader title="Сегодня" sub={todays.length || undefined} action={more('/tasks', 'Все задачи')} />
+            <CardHeader
+              title={focus.length ? 'Остальные задачи' : 'Сегодня'}
+              sub={todays.filter((t) => t.focus_date !== today).length || undefined}
+              action={more('/tasks', 'Все задачи')}
+            />
             <div className="flex items-center gap-3 border-y border-line px-4">
               <Plus size={16} className="shrink-0 text-fg-3" />
               <Input
                 value={quick}
+                disabled={saveTask.isPending}
                 onChange={(e) => setQuick(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addQuick()}
                 placeholder="Новая задача на сегодня"
@@ -215,53 +218,63 @@ export function DashboardPage() {
               />
             </div>
             <TaskList
-              tasks={[...todays, ...doneToday]}
-              empty={tasks.length ? 'На сегодня всё сделано' : 'На сегодня задач нет'}
-              emptyHint={tasks.length ? 'Можно заглянуть в проекты или запланировать завтра' : 'Напишите задачу в поле выше или нажмите N'}
+              tasks={[...todays.filter((t) => t.focus_date !== today), ...doneToday]}
+              empty={focus.length ? 'Других задач на сегодня нет' : tasks.length ? 'На сегодня всё сделано' : 'На сегодня задач нет'}
+              emptyHint={
+                focus.length
+                  ? 'Сосредоточьтесь на главном'
+                  : tasks.length
+                    ? 'Можно заглянуть в проекты или запланировать завтра'
+                    : 'Напишите задачу в поле выше или нажмите N'
+              }
             />
           </Card>
 
-          <Card>
-            <CardHeader title="Проекты в работе" action={more('/projects', 'Все проекты')} />
-            {!active.length ? (
-              <Empty
-                title="Нет активных проектов"
-                action={
-                  <Button size="sm" icon={Plus} onClick={() => edit('projects')}>
-                    Проект
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid gap-x-8 px-4 pb-3 sm:grid-cols-2">
-                {active.map((p) => {
-                  const pr = projectProgress(p, tasks, goals, gp)
-                  const open = tasks.filter((t) => t.project_id === p.id && t.status !== 'done').length
-                  return (
-                    <Link key={p.id} to={`/projects/${p.id}`} className="-mx-2 block rounded-[8px] px-2 py-2.5 hover:bg-hover">
-                      <div className="mb-2 flex items-center gap-2 text-[14px]">
-                        <Dot color={p.color} />
-                        <span className="truncate font-medium">{p.name}</span>
-                        <span className="ml-auto shrink-0 text-[12.5px] text-fg-3 tabular">
-                          {open} {plural(open, 'задача', 'задачи', 'задач')} · {Math.round(pr * 100)}%
-                        </span>
-                      </div>
-                      <Progress value={pr} color={p.color || undefined} size="sm" />
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
+          {!!active.length && (
+            <Card>
+              <CardHeader title="Проекты в работе" action={more('/projects', 'Все проекты')} />
+              {!active.length ? (
+                <Empty
+                  title="Нет активных проектов"
+                  action={
+                    <Button size="sm" icon={Plus} onClick={() => edit('projects')}>
+                      Проект
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="grid gap-x-8 px-4 pb-3 sm:grid-cols-2">
+                  {active.map((p) => {
+                    const pr = projectProgress(p, tasks, goals, gp)
+                    const open = tasks.filter((t) => t.project_id === p.id && t.status !== 'done').length
+                    return (
+                      <Link key={p.id} to={`/projects/${p.id}`} className="-mx-2 block rounded-[8px] px-2 py-2.5 hover:bg-hover">
+                        <div className="mb-2 flex items-center gap-2 text-[14px]">
+                          <Dot color={p.color} />
+                          <span className="truncate font-medium">{p.name}</span>
+                          <span className="ml-auto shrink-0 text-[12.5px] text-fg-3 tabular">
+                            {open} {plural(open, 'задача', 'задачи', 'задач')} · {Math.round(pr * 100)}%
+                          </span>
+                        </div>
+                        <Progress value={pr} color={p.color || undefined} size="sm" />
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </Card>
+          )}
 
-          <Card>
-            <CardHeader title="Цели" action={more('/goals', 'Все цели')} />
-            <GoalList goals={activeGoals.slice(0, 6)} />
-          </Card>
+          {!!activeGoals.length && (
+            <Card>
+              <CardHeader title="Цели" action={more('/goals', 'Все цели')} />
+              <GoalList goals={activeGoals.slice(0, 6)} />
+            </Card>
+          )}
         </div>
 
         <div className="space-y-5">
-          {on('habits') && (
+          {on('habits') && !!dueHabits.length && (
             <Card>
               <CardHeader title="Привычки" sub={dueHabits.length ? `${habitsDone}/${dueHabits.length}` : undefined} action={more('/habits', 'Трекер')} />
               {!dueHabits.length ? (
@@ -282,7 +295,7 @@ export function DashboardPage() {
                         <HabitCell habit={h} date={today} logs={logMap} size="sm" />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[14px]">{h.name}</div>
-                          <div className="text-[12px] text-fg-3">{h.kind === 'quit' ? 'Отметьте, если был срыв' : freqText(h)}</div>
+                          <div className="text-[12px] text-fg-3">{h.kind === 'quit' ? 'Подтвердите чистый день или отметьте срыв' : freqText(h)}</div>
                         </div>
                         {s.streak > 0 && (
                           <span className="text-[12.5px] text-fg-3 tabular" title="Серия">
@@ -297,10 +310,12 @@ export function DashboardPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader title="Ближайшая неделя" action={more('/calendar', 'Календарь')} />
-            <EventList events={upcoming.slice(0, 7)} empty="Событий нет" />
-          </Card>
+          {!!upcoming.length && (
+            <Card>
+              <CardHeader title="Ближайшая неделя" action={more('/calendar', 'Календарь')} />
+              <EventList events={upcoming.slice(0, 7)} empty="Событий нет" />
+            </Card>
+          )}
 
           {on('partners') && partnerActions.length > 0 && (
             <Card>

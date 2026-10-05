@@ -54,6 +54,8 @@ export const schema = {
     deadline: date,
     status: oneOf('active', 'done', 'dropped'),
     metric: { type: 'text', max: 60 },
+    period_start: date,
+    period_end: date,
   },
   partners: {
     name: title,
@@ -94,9 +96,11 @@ export const schema = {
     repeat_interval: { type: 'int', min: 1, max: 3650 },
     repeat_spawned: bool,
     reminded_at: { type: 'datetime' },
+    focus_date: date,
   },
   events: {
     title,
+    external_uid: { type: 'text', max: 500 },
     description: long,
     start: { type: 'datetime', required: true },
     end: { type: 'datetime' },

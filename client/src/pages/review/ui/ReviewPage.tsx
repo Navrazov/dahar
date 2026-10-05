@@ -1,9 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { addDays, addWeeks, eachDayOfInterval, format, parseISO, startOfISOWeek } from 'date-fns'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { type Review as ReviewRow, useList, useListWhere, useSave, useSettings } from '@/shared/api'
+import { api, type Review as ReviewRow, useList, useListWhere, useSave, useSettings } from '@/shared/api'
 import { money, pct, signedMoney, sum, todayStr, ymd } from '@/shared/lib'
 import { Button, Card, CardHeader, Empty, FieldLabel, IconButton, Input, PageHeader, Progress, Stat, Textarea } from '@/shared/ui'
 import { saleProfit } from '@/entities/business'
@@ -19,6 +20,10 @@ import { TaskList } from '@/widgets/task-list'
 const weekOf = (d: Date) => ymd(startOfISOWeek(d))
 
 export function ReviewPage() {
+  useEffect(() => {
+    api.activation('weekly_review_opened').catch(() => {})
+  }, [])
+  const qc = useQueryClient()
   const [week, setWeek] = useState(() => weekOf(new Date()))
   const settings = useSettings()
   const cur = settings.currency || '₽'
@@ -59,7 +64,7 @@ export function ReviewPage() {
       const n = due.filter((d) => mine.get(ymd(d)) === 'done').length
       return { h, ok: n, total: Math.max(1, h.per_week || 1), rate: Math.min(1, n / Math.max(1, h.per_week || 1)) }
     }
-    const ok = due.filter((d) => (h.kind === 'quit' ? mine.get(ymd(d)) !== 'slip' : mine.get(ymd(d)) === 'done')).length
+    const ok = due.filter((d) => mine.get(ymd(d)) === 'done').length
     return { h, ok, total: due.length, rate: due.length ? ok / due.length : 0 }
   })
   const habitAvg = habitRows.length ? sum(habitRows.map((r) => r.rate)) / habitRows.length : 0
@@ -123,7 +128,29 @@ export function ReviewPage() {
           </Card>
           {overdue.length > 0 && (
             <Card>
-              <CardHeader title="Хвосты — перенести или закрыть" sub={overdue.length} />
+              <CardHeader
+                title="Хвосты — перенести или закрыть"
+                sub={overdue.length}
+                action={
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await api.bulkTasks(
+                          overdue.map((t) => t.id),
+                          { due_date: nextStart },
+                        )
+                        await qc.invalidateQueries()
+                        toast.success('Задачи перенесены на следующую неделю')
+                      } catch (e) {
+                        toast.error((e as Error).message)
+                      }
+                    }}
+                  >
+                    Перенести на понедельник
+                  </Button>
+                }
+              />
               <TaskList tasks={overdue} />
             </Card>
           )}
@@ -176,10 +203,12 @@ export function ReviewPage() {
 function QuickPlan({ date }: { date: string }) {
   const save = useSave('tasks')
   const [text, setText] = useState('')
-  const add = () => {
+  const add = async () => {
     if (!text.trim()) return
-    save.mutate({ title: text.trim(), due_date: date, status: 'todo', priority: 'medium' })
-    setText('')
+    try {
+      await save.mutateAsync({ title: text.trim(), due_date: date, status: 'todo', priority: 'medium' })
+      setText('')
+    } catch {}
   }
   return (
     <div className="flex items-center gap-2 border-y border-line px-4 py-1.5">

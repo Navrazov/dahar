@@ -1,3 +1,4 @@
+import { trackActivation } from '../activation/activation.ts'
 import { query } from '../../db/pool.ts'
 import { randomToken } from '../../lib/crypto.ts'
 import { botInfo } from './transport.ts'
@@ -21,6 +22,7 @@ export async function linkChat(code: string, chatId: number): Promise<number | n
   if (!rows[0]) return null
   await query('UPDATE users SET telegram_chat_id = NULL WHERE telegram_chat_id = $1', [chatId])
   await query('UPDATE users SET telegram_chat_id = $1 WHERE id = $2', [chatId, rows[0].user_id])
+  await trackActivation(rows[0].user_id, 'telegram_linked')
   return rows[0].user_id
 }
 

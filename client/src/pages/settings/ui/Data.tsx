@@ -1,60 +1,160 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Download, Upload } from 'lucide-react'
-import { api, useList } from '@/shared/api'
-import { Button, Card, CardHeader } from '@/shared/ui'
+import { api, useList, pendingCount, failedChanges } from '@/shared/api'
+import { fmtDate } from '@/shared/lib'
+import { Button, Card, CardHeader, Modal } from '@/shared/ui'
 import { seedDemo } from '../model/seed'
 
 export function Data() {
   const qc = useQueryClient()
   const projects = useList('projects')
   const [busy, setBusy] = useState(false)
-
-  const restore = async (file?: File) => {
+  const [preview, setPreview] = useState<{ backup: unknown; total: number; counts: Record<string, number> } | null>(null)
+  const [checkpoint, setCheckpoint] = useState<number | null>(null)
+  const saved = useQuery({ queryKey: ['checkpoints'], queryFn: api.checkpoints })
+  const history = useQuery({ queryKey: ['history'], queryFn: api.history })
+  const pick = async (file?: File) => {
     if (!file) return
     try {
-      const json = JSON.parse(await file.text())
-      await api.restore(json)
-      await qc.invalidateQueries()
-      toast.success('Данные восстановлены из резервной копии')
+      const backup = JSON.parse(await file.text())
+      const p = await api.restorePreview(backup)
+      setPreview({ backup, total: p.total, counts: p.counts })
     } catch (e) {
-      toast.error('Не удалось восстановить: ' + (e as Error).message)
+      toast.error((e as Error).message)
     }
   }
-
-  const demo = async () => {
+  const restore = async () => {
     setBusy(true)
-    const id = toast.loading('Загружаю пример данных…')
     try {
-      await seedDemo()
+      if ((await pendingCount()) || (await failedChanges()).length) throw new Error('Сначала синхронизируйте или разберите несохранённые изменения')
+      if (preview) await api.restore(preview.backup)
+      else if (checkpoint) await api.restoreCheckpoint(checkpoint)
       await qc.invalidateQueries()
-      toast.success('Пример загружен, загляните на главную', { id })
+      setPreview(null)
+      setCheckpoint(null)
+      toast.success('Данные восстановлены. Предыдущая версия сохранена автоматически')
     } catch (e) {
-      toast.error('Ошибка: ' + (e as Error).message, { id })
+      toast.error((e as Error).message)
     } finally {
       setBusy(false)
     }
   }
-
+  const undo = async (id: number) => {
+    try {
+      await api.undo(id)
+      await qc.invalidateQueries()
+      toast.success('Действие отменено')
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+  const demo = async () => {
+    setBusy(true)
+    try {
+      await seedDemo()
+      await qc.invalidateQueries()
+      toast.success('Пример загружен')
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
     <Card className="lg:col-span-2">
-      <CardHeader title="Данные" />
-      <div className="flex flex-wrap gap-2 px-4 pb-3">
-        <a href="/api/backup" download>
-          <Button icon={Download}>Скачать резервную копию</Button>
-        </a>
-        <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[7px] border border-line bg-surface px-3.5 text-[13.5px] font-medium hover:border-line-strong hover:bg-hover">
-          <Upload size={15} /> Восстановить из копии
-          <input type="file" accept="application/json" hidden onChange={(e) => restore(e.target.files?.[0])} />
-        </label>
-        {!projects.length && (
-          <Button onClick={demo} loading={busy}>
-            Загрузить пример данных
-          </Button>
+      <CardHeader title="Данные и история" />
+      <div className="space-y-4 px-4 pb-4">
+        <div className="flex flex-wrap gap-2">
+          <a href="/api/backup" download>
+            <Button icon={Download}>Скачать резервную копию</Button>
+          </a>
+          <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[7px] border border-line px-3 text-[13.5px]">
+            <Upload size={15} />
+            Проверить копию
+            <input
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={(e) => {
+                pick(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+          </label>
+          {!projects.length && (
+            <Button onClick={demo} loading={busy}>
+              Загрузить пример данных
+            </Button>
+          )}
+        </div>
+        <p className="text-[12.5px] text-fg-3">
+          Копия включает ваши записи, изображения и правила импорта. Перед заменой данных приложение проверит файл и сохранит текущую версию.
+        </p>
+        {!!saved.data?.length && (
+          <div>
+            <p className="mb-2 text-[13px] font-medium">Версии перед восстановлением</p>
+            {saved.data.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 py-1 text-[13px]">
+                <span>{fmtDate(s.created_at, 'd MMM yyyy, HH:mm')}</span>
+                <Button size="sm" onClick={() => setCheckpoint(s.id)}>
+                  Восстановить
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        {!!history.data?.length && (
+          <div>
+            <p className="mb-2 text-[13px] font-medium">Последние действия</p>
+            {history.data.map((h) => (
+              <div key={h.id} className="flex items-center justify-between gap-2 border-t border-line py-2 text-[13px]">
+                <span>
+                  {h.label} · {fmtDate(h.created_at, 'd MMM, HH:mm')}
+                </span>
+                <Button size="sm" disabled={!!h.undone_at} onClick={() => undo(h.id)}>
+                  {h.undone_at ? 'Отменено' : 'Отменить'}
+                </Button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
-      <p className="px-4 pb-4 text-[12.5px] text-fg-3">Копия содержит только ваши данные. Восстановление полностью заменяет текущие данные вашего аккаунта.</p>
+      {(preview || checkpoint) && (
+        <Modal
+          open
+          onClose={() => {
+            if (!busy) {
+              setPreview(null)
+              setCheckpoint(null)
+            }
+          }}
+          title="Заменить текущие данные?"
+          footer={
+            <>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  setPreview(null)
+                  setCheckpoint(null)
+                }}
+              >
+                Отмена
+              </Button>
+              <Button variant="danger" loading={busy} onClick={restore}>
+                Заменить данные
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[14px]">
+            {preview ? `В проверенной копии ${preview.total} записей.` : 'Будет восстановлена выбранная версия.'} Текущие записи заменятся. Их копия сохранится
+            в списке версий.
+          </p>
+          {preview && <div className="mt-3 text-[13px]">{Object.values(preview.counts).filter((n) => n > 0).length} разделов с данными</div>}
+        </Modal>
+      )}
     </Card>
   )
 }

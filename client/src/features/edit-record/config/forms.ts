@@ -26,6 +26,7 @@ export type Field = {
   when?: (v: Values) => boolean
   suffix?: string
   positive?: boolean
+  hint?: string
 }
 
 export type Values = Record<string, any>
@@ -45,7 +46,7 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
     newLabel: 'Новый проект',
     title: 'Проект',
     fields: [
-      { name: 'name', label: 'Название', type: 'text', required: true, full: true, placeholder: 'Например: Развитие партнёрской сети' },
+      { name: 'name', label: 'Название', type: 'text', required: true, full: true, placeholder: 'Например: Подготовиться к экзамену' },
       { name: 'description', label: 'Описание', type: 'textarea', full: true },
       { name: 'goal', label: 'Цель проекта', type: 'textarea', full: true, placeholder: 'Чего хочу достичь' },
       { name: 'status', label: 'Статус', type: 'select', options: projectStatuses },
@@ -61,27 +62,49 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
     newLabel: 'Новая цель',
     title: 'Цель',
     fields: [
-      { name: 'title', label: 'Цель', type: 'text', required: true, full: true, placeholder: 'Например: 10 активных партнёров' },
+      { name: 'title', label: 'Цель', type: 'text', required: true, full: true, placeholder: 'Например: Прочитать 12 книг' },
       { name: 'description', label: 'Описание', type: 'textarea', full: true },
-      project,
+      { ...project, when: (v) => !['finance_savings', 'finance_investments', 'trading_balance'].includes(v.metric) },
       { name: 'status', label: 'Статус', type: 'select', options: goalStatuses },
       {
         name: 'metric',
         label: 'Как считать прогресс',
         type: 'select',
-        options: [{ value: '', label: 'Вручную' }, ...goalMetrics.map((m) => ({ value: m.value, label: m.label }))],
+        options: [{ value: '', label: 'Вручную' }, ...goalMetrics.map((m) => ({ value: m.value, label: m.label, module: m.module }))],
         full: true,
+        hint: 'Накопления, инвестиции и баланс торгового счёта показывают текущий баланс всего аккаунта',
       },
       { name: 'current_value', label: 'Текущее значение', type: 'number', when: (v) => !v.metric },
       { name: 'target_value', label: 'Целевое значение', type: 'number' },
       { name: 'unit', label: 'Единица', type: 'text', suggest: true, placeholder: 'партнёров, ₽, книг…' },
       { name: 'deadline', label: 'Срок', type: 'date' },
+      {
+        name: 'period_start',
+        label: 'Начало периода',
+        type: 'date',
+        when: (v) => !!v.metric && !['finance_savings', 'finance_investments', 'trading_balance'].includes(v.metric),
+      },
+      {
+        name: 'period_end',
+        when: (v) => !!v.metric && !['finance_savings', 'finance_investments', 'trading_balance'].includes(v.metric),
+        label: 'Конец периода',
+        type: 'date',
+        hint: 'Показатели считаются за этот период и только для выбранного проекта',
+      },
     ],
     defaults: () => ({ status: 'active', current_value: 0, metric: '' }),
     derive: (v, changed) => {
       if (changed !== 'metric' || !v.metric) return {}
       const m = goalMetrics.find((g) => g.value === v.metric)
-      return m && !v.unit ? { unit: m.unit } : {}
+      return {
+        ...(m && !v.unit ? { unit: m.unit } : {}),
+        ...(String(v.metric).endsWith('_month') && !v.period_start
+          ? {
+              period_start: todayStr().slice(0, 7) + '-01',
+              period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString('sv-SE'),
+            }
+          : {}),
+      }
     },
   },
   tasks: {

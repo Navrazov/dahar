@@ -21,14 +21,27 @@ export function HabitCell({ habit, date, logs, size = 'md' }: { habit: Habit; da
     if (status === 'slip') {
       style = { background: 'var(--bad)', color: 'white' }
       content = <X size={13} strokeWidth={2.5} />
-    } else if (!disabled) style = { background: `color-mix(in srgb, ${color} 20%, var(--surface))` }
+    } else if (status === 'done') {
+      style = { background: color, color: 'white' }
+      content = <Check size={13} strokeWidth={3} />
+    }
   } else if (status === 'done') {
     style = { background: color, color: 'white' }
     content = <Check size={13} strokeWidth={3} />
   }
 
-  const next = quit ? (status === 'slip' ? null : 'slip') : status === 'done' ? null : 'done'
-  const state = quit ? (status === 'slip' ? 'срыв' : 'без срыва') : status === 'done' ? 'выполнено' : scheduled ? 'не выполнено' : 'не по плану'
+  const next = quit ? (status === 'done' ? 'slip' : status === 'slip' ? null : 'done') : status === 'done' ? null : 'done'
+  const state = quit
+    ? status === 'slip'
+      ? 'срыв'
+      : status === 'done'
+        ? 'без срыва'
+        : 'нет данных'
+    : status === 'done'
+      ? 'выполнено'
+      : scheduled
+        ? 'не выполнено'
+        : 'не по плану'
   const title = `${format(day, 'd MMM')}: ${state}`
 
   return (
@@ -43,7 +56,7 @@ export function HabitCell({ habit, date, logs, size = 'md' }: { habit: Habit; da
         size === 'sm' ? 'h-7 w-7' : 'h-8 w-8',
         disabled ? 'cursor-default border-transparent opacity-30' : 'border-line hover:scale-105 hover:border-line-strong',
         !scheduled && !quit && !status && !disabled && 'border-dashed opacity-50',
-        (status || (quit && !disabled)) && 'border-transparent',
+        status && 'border-transparent',
       )}
       style={style}
     >

@@ -22,5 +22,7 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
 
 export function requireUser(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: 'Требуется вход' })
+  if (req.get('X-Dahar-User') && req.get('X-Dahar-User') !== String(req.user.id))
+    return res.status(401).json({ error: 'В другой вкладке открыт другой аккаунт. Войдите снова' })
   next()
 }

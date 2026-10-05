@@ -32,6 +32,7 @@ export interface Overview {
   }
   collections: { collection: string; total: number; week: number }[]
   adoption: { key: string; users: number }[]
+  activation: { event: string; users: number }[]
   daily: { day: string; signups: number; active: number; records: number }[]
 }
 

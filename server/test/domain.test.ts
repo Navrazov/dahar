@@ -168,8 +168,14 @@ test('telegram bot: bare amounts, fixing mistakes, voice', async () => {
   } finally {
     config.stt = prev
   }
-  assert.ok((await txs()).some((t) => t.amount === 650 && t.category === 'Обед'), 'voice note became an expense')
-  assert.ok(out.sent.some((s) => s.text?.includes('Обед 650')), 'transcript is echoed back')
+  assert.ok(
+    (await txs()).some((t) => t.amount === 650 && t.category === 'Обед'),
+    'voice note became an expense',
+  )
+  assert.ok(
+    out.sent.some((s) => s.text?.includes('Обед 650')),
+    'transcript is echoed back',
+  )
 
   await query('UPDATE users SET telegram_chat_id = $1 WHERE id = $2', [linked, userId])
 })

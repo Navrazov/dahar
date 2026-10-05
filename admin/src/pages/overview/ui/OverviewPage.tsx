@@ -37,6 +37,26 @@ export function OverviewPage() {
         ]}
       />
 
+      <Card className="mb-5">
+        <CardHeader title="Первый полезный результат" sub="Число пользователей, достигших шага; шаги независимы" />
+        <RankBars
+          items={['first_task', 'first_completion', 'first_habit', 'telegram_linked', 'weekly_review_opened', 'first_review', 'onboarding_completed'].map(
+            (event, i) => ({
+              label: [
+                'Создали задачу',
+                'Выполнили задачу',
+                'Завели привычку',
+                'Подключили Telegram',
+                'Открыли итоги недели',
+                'Сохранили итоги',
+                'Завершили знакомство',
+              ][i],
+              value: data.activation.find((x) => x.event === event)?.users ?? 0,
+            }),
+          )}
+          total={t.users || 1}
+        />
+      </Card>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="lg:col-span-2">
           <CardHeader title="Активные пользователи по дням" sub="90 дней" />

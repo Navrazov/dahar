@@ -1,8 +1,8 @@
 import clsx from 'clsx'
 import { Link } from 'react-router-dom'
-import { Flag, Handshake, Repeat } from 'lucide-react'
+import { Flag, Handshake, Repeat, Star } from 'lucide-react'
 import { byId, useList, useSave, type Task } from '@/shared/api'
-import { daysLeft, label, relDate } from '@/shared/lib'
+import { daysLeft, label, relDate, todayStr } from '@/shared/lib'
 import { Checkbox, Dot, Empty } from '@/shared/ui'
 import { priorities, priorityColor, repeatOptions, sortTasks } from '@/entities/task'
 import { useEditor } from '@/features/edit-record'
@@ -11,7 +11,7 @@ export function TaskRow({ task, hideProject }: { task: Task; hideProject?: boole
   const edit = useEditor()
   const save = useSave('tasks')
   const projects = byId(useList('projects'))
-  const partners = byId(useList('partners'))
+  const partners = byId(useList('partners', !!task.partner_id))
   const project = task.project_id ? projects.get(task.project_id) : null
   const partner = task.partner_id ? partners.get(task.partner_id) : null
   const done = task.status === 'done'
@@ -21,6 +21,20 @@ export function TaskRow({ task, hideProject }: { task: Task; hideProject?: boole
 
   return (
     <div onClick={() => edit('tasks', task)} className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-hover">
+      {!done && (
+        <button
+          type="button"
+          aria-label={task.focus_date === todayStr() ? 'Убрать из главного' : 'Главное на сегодня'}
+          aria-pressed={task.focus_date === todayStr()}
+          onClick={(e) => {
+            e.stopPropagation()
+            save.mutate({ id: task.id, focus_date: task.focus_date === todayStr() ? null : todayStr() })
+          }}
+          className={clsx('shrink-0 hover:text-accent', task.focus_date === todayStr() ? 'text-accent' : 'text-fg-3')}
+        >
+          <Star size={15} fill={task.focus_date === todayStr() ? 'currentColor' : 'none'} />
+        </button>
+      )}
       <Checkbox checked={done} label={done ? 'Вернуть в работу' : 'Выполнить'} onChange={() => save.mutate({ id: task.id, status: done ? 'todo' : 'done' })} />
       <div className="min-w-0 flex-1">
         <div className={clsx('flex items-center gap-1.5 text-[14px]', done && 'text-fg-3 line-through decoration-fg-3/60')}>

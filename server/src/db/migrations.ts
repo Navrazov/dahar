@@ -110,6 +110,65 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: '006_reliability_and_history',
+    async up(c) {
+      await query(
+        `
+        UPDATE goals SET period_start=date_trunc('month',created_at)::date,period_end=(date_trunc('month',created_at)+interval '1 month - 1 day')::date WHERE metric LIKE '%_month' AND period_start IS NULL;
+        UPDATE events SET external_uid=gen_random_uuid()::text || '@dahar' WHERE external_uid IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS events_external_uid ON events(user_id,external_uid) WHERE external_uid IS NOT NULL;
+        ALTER TABLE accounts ADD COLUMN IF NOT EXISTS import_identity text;
+        UPDATE accounts SET import_identity=id::text WHERE import_identity IS NULL;
+        ALTER TABLE accounts ALTER COLUMN import_identity SET DEFAULT gen_random_uuid()::text;
+        CREATE UNIQUE INDEX IF NOT EXISTS accounts_import_identity ON accounts(user_id,import_identity) WHERE import_identity IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS request_operations(user_id integer REFERENCES users(id) ON DELETE CASCADE, key text, fingerprint text NOT NULL,
+          response jsonb NOT NULL, status integer NOT NULL, action_id bigint, created_at timestamptz DEFAULT now(), PRIMARY KEY(user_id,key));
+        CREATE TABLE IF NOT EXISTS history_actions(id bigserial PRIMARY KEY,user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          label text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),undone_at timestamptz);
+        CREATE INDEX IF NOT EXISTS history_actions_user ON history_actions(user_id,id);
+        CREATE TABLE IF NOT EXISTS history_changes(id bigserial PRIMARY KEY,action_id bigint NOT NULL REFERENCES history_actions(id) ON DELETE CASCADE,
+          table_name text NOT NULL,before_row jsonb,after_row jsonb);
+        CREATE INDEX IF NOT EXISTS history_changes_action ON history_changes(action_id,id);
+        CREATE TABLE IF NOT EXISTS saved_backups(id bigserial PRIMARY KEY,user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+        CREATE TABLE IF NOT EXISTS product_events(user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,event text NOT NULL,
+          created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(user_id,event));
+        CREATE TABLE IF NOT EXISTS notification_deliveries(user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,key text NOT NULL,channel text NOT NULL,
+          attempts integer NOT NULL DEFAULT 0,delivered_at timestamptz,next_attempt_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY(user_id,key,channel));
+        CREATE OR REPLACE FUNCTION dahar_capture_change() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE action bigint;
+        BEGIN
+          action := NULLIF(current_setting('dahar.action',true),'')::bigint;
+          IF action IS NOT NULL THEN
+            INSERT INTO history_changes(action_id,table_name,before_row,after_row)
+            VALUES(action,TG_TABLE_NAME,CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) END,CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) END);
+          END IF;
+          RETURN NULL;
+        END $$;
+      `,
+        [],
+        c,
+      )
+      for (const table of tableOrder) await query(`CREATE INDEX IF NOT EXISTS ${q('idx_' + table + '_user_id_cursor')} ON ${q(table)}(user_id,id DESC)`, [], c)
+      const constraints = (
+        await query(
+          "SELECT c.conrelid::regclass::text AS table_name,c.conname FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.contype='f' AND n.nspname='public'",
+          [],
+          c,
+        )
+      ).rows
+      for (const constraint of constraints)
+        await query(`ALTER TABLE ${q(constraint.table_name)} ALTER CONSTRAINT ${q(constraint.conname)} DEFERRABLE INITIALLY IMMEDIATE`, [], c)
+      for (const table of [...tableOrder, 'settings', 'statement_imports', 'category_rules'])
+        await query(
+          `CREATE OR REPLACE TRIGGER dahar_history AFTER INSERT OR UPDATE OR DELETE ON ${q(table)} FOR EACH ROW EXECUTE FUNCTION dahar_capture_change()`,
+          [],
+          c,
+        )
+    },
+  },
 ]
 
 type Log = (message: string) => void

@@ -26,7 +26,7 @@ export const moduleCatalog: ModuleDef[] = [
     label: 'Калькулятор',
     to: '/calculator',
     icon: Calculator,
-    defaultEnabled: true,
+    defaultEnabled: false,
     description: 'Сложный процент с пополнениями и график роста капитала',
   },
   {

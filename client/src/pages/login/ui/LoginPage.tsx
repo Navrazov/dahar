@@ -1,6 +1,6 @@
 import { LoginForm } from '@/features/auth'
 
-const lines = ['Задачи и проекты', 'Привычки', 'Деньги и бюджеты', 'Партнёры, сделки, продажи']
+const lines = ['Пойми главное на сегодня.', 'Двигай свои проекты.', 'Подведи итоги недели.']
 
 export function LoginPage() {
   return (
@@ -13,7 +13,7 @@ export function LoginPage() {
           {lines.map((l) => (
             <li key={l}>{l}</li>
           ))}
-          <li className="text-fg">в одном месте.</li>
+          <li className="text-fg">Dahar — каждый день со смыслом.</li>
         </ul>
       </div>
     </div>

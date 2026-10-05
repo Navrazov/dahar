@@ -57,11 +57,11 @@ export async function habitsView(userId: number): Promise<View> {
   const due = rows.filter((h) => h.kind === 'quit' || h.frequency !== 'weekdays' || (h.days || []).includes(wd))
   if (!due.length) return { text: 'На сегодня привычек нет' }
   const quit = (h: DbRow) => h.kind === 'quit'
-  const mark = (h: DbRow) => (quit(h) ? (h.status === 'slip' ? '✗' : '✓') : h.status === 'done' ? '✓' : '○')
-  const suffix = (h: DbRow) => (quit(h) ? (h.status === 'slip' ? ' — срыв' : ' — держусь') : '')
+  const mark = (h: DbRow) => (h.status === 'slip' ? '✗' : h.status === 'done' ? '✓' : '○')
+  const suffix = (h: DbRow) => (quit(h) ? (h.status === 'slip' ? ' — срыв' : h.status === 'done' ? ' — держусь' : ' — нет отметки') : '')
   const buttons = due.map((h) => [{ text: `${mark(h)} ${h.name}${suffix(h)}`, callback_data: `habit:${h.id}` }])
-  const done = due.filter((h) => (quit(h) ? h.status !== 'slip' : h.status === 'done')).length
-  return { text: `<b>Привычки на сегодня</b> · ${done}/${due.length}\n\nНажмите, чтобы отметить (для «избавиться» — отметить срыв):`, buttons }
+  const done = due.filter((h) => h.status === 'done').length
+  return { text: `<b>Привычки на сегодня</b> · ${done}/${due.length}\n\nНажмите, чтобы отметить (для «избавиться»: держусь → срыв → снять):`, buttons }
 }
 
 export async function weekView(userId: number): Promise<View> {

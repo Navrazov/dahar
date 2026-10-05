@@ -37,9 +37,17 @@ describe('habitStats: daily habit', () => {
 describe('habitStats: quit habit', () => {
   const h = row('habits', { name: 'Не курить', kind: 'quit', start_date: '2026-10-01' })
 
-  it('every day without a slip counts', () => {
+  it('missing checks never count as success', () => {
     const s = habitStats(h, [log(h.id, '2026-10-03', 'slip')])
-    expect(s.streak).toBe(4) // 4, 5, 6, 7 октября
+    expect(s.streak).toBe(0)
+    expect(s.doneToday).toBe(false)
+  })
+  it('counts confirmed clean days', () => {
+    const s = habitStats(
+      h,
+      ['2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07'].map((d) => log(h.id, d)),
+    )
+    expect(s.streak).toBe(4)
     expect(s.doneToday).toBe(true)
   })
 })

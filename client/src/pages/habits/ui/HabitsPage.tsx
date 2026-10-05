@@ -20,7 +20,7 @@ function Heatmap({ habit, logs }: { habit: Habit; logs: Map<string, string> }) {
         const k = ymd(d)
         const s = logs.get(`${habit.id}:${k}`)
         const inRange = k >= habitStart(habit) && k <= todayStr()
-        const good = habit.kind === 'quit' ? inRange && s !== 'slip' : s === 'done'
+        const good = s === 'done'
         return (
           <div
             key={k}
@@ -60,7 +60,7 @@ export function HabitsPage() {
     <>
       <PageHeader
         title="Привычки"
-        subtitle="Отмечайте выполнение кликом по дню. Для привычек «избавиться» день считается чистым, пока не отмечен срыв"
+        subtitle="Отмечайте выполнение кликом по дню. Для привычек «избавиться»: первый клик — чистый день, второй — срыв, третий — нет данных"
         actions={
           <>
             <Segmented

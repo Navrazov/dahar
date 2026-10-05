@@ -35,15 +35,35 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST', body: '{}' }),
   changePassword: (current: string, next: string) => request('/api/auth/password', json('POST', { current, next })),
 
-  list: <K extends CollectionName>(t: K) => request<Collections[K][]>(`/api/${t}`),
+  list: async <K extends CollectionName>(t: K) => {
+    const rows: Collections[K][] = []
+    let before: number | undefined
+    while (true) {
+      const batch = await request<Collections[K][]>(`/api/${t}?limit=500${before ? `&before=${before}` : ''}`)
+      rows.push(...batch)
+      if (batch.length < 500) return rows
+      before = batch[batch.length - 1].id
+    }
+  },
   get: <K extends CollectionName>(t: K, id: number) => request<Collections[K]>(`/api/${t}/${id}`),
   search: (q: string) => request<SearchHit[]>(`/api/search?q=${encodeURIComponent(q)}`),
-  where: <K extends CollectionName>(t: K, params: Params) => request<Collections[K][]>(`/api/${t}?${query(params)}`),
+  where: async <K extends CollectionName>(t: K, params: Params) => {
+    if (params.limit) return request<Collections[K][]>(`/api/${t}?${query(params)}`)
+    const rows: Collections[K][] = []
+    let before: number | undefined
+    while (true) {
+      const batch = await request<Collections[K][]>(`/api/${t}?${query({ ...params, limit: 500, ...(before ? { before } : {}) })}`)
+      rows.push(...batch)
+      if (batch.length < 500) return rows
+      before = batch[batch.length - 1].id
+    }
+  },
   create: <K extends CollectionName>(t: K, data: Partial<Collections[K]>) => request<Collections[K]>(`/api/${t}`, json('POST', withCompletion(t, data))),
   update: <K extends CollectionName>(t: K, id: number, data: Partial<Collections[K]>) =>
     request<Collections[K]>(`/api/${t}/${id}`, json('PATCH', withCompletion(t, data))),
   remove: (t: CollectionName, id: number) => request(`/api/${t}/${id}`, { method: 'DELETE' }),
 
+  bulkTasks: (ids: number[], data: Partial<Collections['tasks']>) => request('/api/tasks/bulk', json('POST', { ids, data })),
   habitLog: (habit_id: number, date: string, status: 'done' | 'slip' | null) => request('/api/habit-log', json('PUT', { habit_id, date, status })),
   settings: () => request<Settings>('/api/settings'),
   setSetting: (key: keyof Settings, value: unknown) => request(`/api/settings/${key}`, json('PUT', { value })),
@@ -51,7 +71,17 @@ export const api = {
   statementPreview: (account_id: number, data: string) => request<StatementPreview>('/api/finance/import/preview', json('POST', { account_id, data })),
   statementImport: (account_id: number, rows: unknown[]) => request<StatementImportResult>('/api/finance/import', json('POST', { account_id, rows })),
   upload: (dataUrl: string) => request<{ url: string }>('/api/files', json('POST', { data: dataUrl })),
-  restore: (backup: unknown) => request('/api/restore', json('POST', backup)),
+  restorePreview: (backup: unknown) =>
+    request<{ version: number; total: number; counts: Record<string, number>; exported_at?: string }>('/api/restore/preview', json('POST', backup)),
+  restore: (backup: unknown) => request('/api/restore', json('POST', { ...(backup as object), confirm: 'replace' })),
+  checkpoints: () => request<{ id: number; created_at: string }[]>('/api/backup/checkpoints'),
+  restoreCheckpoint: (id: number) => request('/api/backup/checkpoints/' + id + '/restore', json('POST', { confirm: 'replace' })),
+  history: () => request<{ id: number; label: string; created_at: string; undone_at: string | null }[]>('/api/history'),
+  undo: (id: number) => request('/api/history/' + id + '/undo', json('POST', {})),
+  calendarPreview: (data: string) => request<{ events: { title: string; start: string; all_day: boolean }[] }>('/api/calendar/preview', json('POST', { data })),
+  calendarImport: (data: string) => request<{ created: number; updated: number }>('/api/calendar/import', json('POST', { data })),
+  calendarExport: () => request<string>('/api/calendar/export'),
+  activation: (event: string) => request('/api/activation', json('POST', { event })),
   insight: (week: string) => request<{ enabled: boolean; insight: WeeklyInsight | null }>(`/api/insights?week=${week}`),
   createInsight: (week: string) => request<WeeklyInsight>('/api/insights', json('POST', { week })),
   push: () => request<{ publicKey: string | null; devices: number }>('/api/push'),

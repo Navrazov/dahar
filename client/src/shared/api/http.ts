@@ -1,4 +1,4 @@
-import { enqueue, isQueueable } from './outbox'
+import { enqueue, isQueueable, getOutboxOwner } from './outbox'
 
 export class ApiError extends Error {
   constructor(
@@ -19,6 +19,13 @@ export const setAuthToken = (token: string | null) => {
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const method = (init?.method || 'GET').toUpperCase()
+  const headers = new Headers(init?.headers)
+  if (method !== 'GET' && !headers.has('Idempotency-Key')) headers.set('Idempotency-Key', crypto.randomUUID())
+  init = { ...init, headers }
+  if (init.body) headers.set('Content-Type', 'application/json')
+  if (authToken) headers.set('Authorization', `Bearer ${authToken}`)
+  const owner = getOutboxOwner()
+  if (owner !== null) headers.set('X-Dahar-User', String(owner))
   const queueable = isQueueable(url, method)
   if (queueable && !navigator.onLine) return enqueue<T>(url, init ?? {})
 
@@ -27,10 +34,8 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
     res = await fetch(url, {
       ...init,
       credentials: 'same-origin',
-      headers: {
-        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      },
+      signal: init.signal ?? (queueable ? AbortSignal.timeout(15000) : undefined),
+      headers,
     })
   } catch (e) {
     // Сеть пропала посреди запроса — изменение не теряем, а откладываем.
@@ -42,7 +47,9 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
     if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
     throw new ApiError(res.status, body.error || `Ошибка ${res.status}`)
   }
-  return res.json()
+  const action = res.headers.get('X-Dahar-Action')
+  if (action && !url.startsWith('/api/settings/')) window.dispatchEvent(new CustomEvent('dahar:action', { detail: { id: Number(action) } }))
+  return res.headers.get('content-type')?.includes('application/json') ? res.json() : (res.text() as Promise<T>)
 }
 
 export const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })

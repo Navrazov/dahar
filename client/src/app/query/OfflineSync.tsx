@@ -22,7 +22,8 @@ export function OfflineSync() {
 
     const sync = async () => {
       if (!navigator.onLine || !(await pendingCount())) return
-      const res = await flushOutbox()
+      const res = await flushOutbox().catch(() => null)
+      if (!res) return
       if (res.sent || res.failed.length) await qc.invalidateQueries()
       if (res.sent) toast.success(`Синхронизировано изменений: ${res.sent}`)
       for (const f of res.failed) toast.error(`Не удалось сохранить изменение: ${f.message}`)
