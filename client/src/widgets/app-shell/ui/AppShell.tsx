@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Menu, Plus, X } from 'lucide-react'
-import { ErrorBoundary, Logo } from '@/shared/ui'
+import { ErrorBoundary, Logo, PageReady, TopProgress } from '@/shared/ui'
 import { useDetectTimezone } from '../model/useDetectTimezone'
 import { useEditor } from '@/features/edit-record'
 import { Sidebar } from './Sidebar'
@@ -36,24 +36,25 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen">
+      <TopProgress />
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[248px] lg:block">
         <Sidebar />
       </aside>
 
       <header className="sticky top-0 z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] items-center gap-2 border-b border-line bg-bg/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
-        <button type="button" aria-label="Меню" onClick={() => setMobileOpen(true)} className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-[7px] hover:bg-hover">
+        <button type="button" aria-label="Меню" onClick={() => setMobileOpen(true)} className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-[7px] transition-[background-color,transform] hover:bg-hover active:scale-90">
           <Menu size={19} />
         </button>
         <Logo />
-        <button type="button" aria-label="Новая задача" onClick={() => edit('tasks')} className="ml-auto flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-on-ink">
+        <button type="button" aria-label="Новая задача" onClick={() => edit('tasks')} className="ml-auto flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-on-ink transition-transform active:scale-90">
           <Plus size={18} />
         </button>
       </header>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/35" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-bg shadow-xl">
+          <div className="absolute inset-0 animate-[fade-in_200ms_ease-out] bg-black/35" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] animate-[drawer-in_280ms_var(--ease-out)] bg-bg shadow-xl">
             <button
               type="button"
               aria-label="Закрыть меню"
@@ -70,7 +71,9 @@ export function AppShell() {
       <main className="lg:pl-[248px]">
         <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
           <ErrorBoundary key={pathname}>
-            <Outlet />
+            <PageReady>
+              <Outlet />
+            </PageReady>
           </ErrorBoundary>
         </div>
       </main>

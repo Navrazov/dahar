@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, AUTH_EXPIRED_EVENT } from '@/shared/api'
-import { Button } from '@/shared/ui'
+import { Button, LogoMark, Spinner } from '@/shared/ui'
 import { ME_KEY, signOutLocally, UserContext } from '@/entities/session'
 import { LoginPage } from '@/pages/login'
 
@@ -24,12 +24,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired)
   }, [qc])
 
-  if (me.isPending) return <div className="min-h-screen bg-bg" />
+  if (me.isPending) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-bg animate-[fade-in_400ms_ease-out_150ms_both]">
+        <LogoMark size={36} />
+        <Spinner size={18} className="text-fg-3" />
+      </div>
+    )
+  }
   if (me.isError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-4 text-center">
+      <div className="flex min-h-screen animate-[fade-in_300ms_ease-out] flex-col items-center justify-center bg-bg px-4 text-center">
         <p className="text-[14px] text-fg-2">Сервер не отвечает.</p>
-        <Button className="mt-4" onClick={() => me.refetch()}>
+        <Button className="mt-4" loading={me.isFetching} onClick={() => me.refetch()}>
           Повторить
         </Button>
       </div>

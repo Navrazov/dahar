@@ -4,6 +4,7 @@ import type { ModuleKey } from '@/shared/api'
 import { EditorProvider } from '@/features/edit-record'
 import { AppShell } from '@/widgets/app-shell'
 import { ModuleGate } from '@/widgets/module-gate'
+import { SuspenseSkeleton } from '@/shared/ui'
 
 const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })))
 
@@ -22,7 +23,7 @@ const FinancePage = page(() => import('@/pages/finance'), 'FinancePage')
 const CalculatorPage = page(() => import('@/pages/calculator'), 'CalculatorPage')
 const SettingsPage = page(() => import('@/pages/settings'), 'SettingsPage')
 
-const view = (node: ReactNode) => <Suspense fallback={null}>{node}</Suspense>
+const view = (node: ReactNode) => <Suspense fallback={<SuspenseSkeleton />}>{node}</Suspense>
 const gated = (module: ModuleKey, node: ReactNode) => <ModuleGate module={module}>{view(node)}</ModuleGate>
 
 export function AppRouter() {

@@ -11,7 +11,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            'h-[30px] rounded-[6px] px-3 text-[13px] font-medium transition-colors',
+            'h-[30px] rounded-[6px] px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200',
             value === o.value ? 'bg-surface text-fg shadow-[0_1px_2px_rgb(0_0_0/0.07)]' : 'text-fg-2 hover:text-fg',
           )}
         >

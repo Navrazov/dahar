@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import { Copy, Download, ExternalLink, Send, Upload } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ModuleKey, type Settings, useList, useSave, useSetSetting, useSettings } from '@/shared/api'
-import { Badge, Button, Card, CardHeader, FieldLabel, Input, PageHeader, Select, Switch } from '@/shared/ui'
+import { Badge, Button, Card, CardHeader, FieldLabel, Input, PageHeader, Select, Skeleton, Switch } from '@/shared/ui'
 import { isEnabled, moduleCatalog, moduleLabel } from '@/entities/module'
 import { useUser } from '@/entities/session'
 import { seedDemo } from '../model/seed'
@@ -116,7 +116,7 @@ function Password() {
           </FieldLabel>
         </div>
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" disabled={busy || !current || !next}>
+          <Button type="submit" variant="primary" loading={busy} disabled={!current || !next}>
             Сменить пароль
           </Button>
         </div>
@@ -229,7 +229,7 @@ function Data() {
           <input type="file" accept="application/json" hidden onChange={(e) => restore(e.target.files?.[0])} />
         </label>
         {!projects.length && (
-          <Button onClick={demo} disabled={busy}>
+          <Button onClick={demo} loading={busy}>
             Загрузить пример данных
           </Button>
         )}
@@ -255,20 +255,31 @@ function Notifications() {
   const qc = useQueryClient()
   const tg = useQuery({ queryKey: ['telegram'], queryFn: api.telegram })
   const [code, setCode] = useState<{ code: string; link: string | null } | null>(null)
+  const [pending, setPending] = useState<'link' | 'unlink' | null>(null)
 
   const now = new Intl.DateTimeFormat('ru-RU', { timeZone: settings.timezone || undefined, hour: '2-digit', minute: '2-digit' }).format(new Date())
 
   const link = async () => {
+    setPending('link')
     try {
       setCode(await api.telegramCode())
     } catch (e) {
       toast.error((e as Error).message)
+    } finally {
+      setPending(null)
     }
   }
   const unlink = async () => {
-    await api.telegramUnlink()
-    await qc.invalidateQueries({ queryKey: ['telegram'] })
-    toast.success('Telegram отвязан')
+    setPending('unlink')
+    try {
+      await api.telegramUnlink()
+      await qc.invalidateQueries({ queryKey: ['telegram'] })
+      toast.success('Telegram отвязан')
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setPending(null)
+    }
   }
 
   return (
@@ -299,9 +310,15 @@ function Notifications() {
           <div className="mb-2 flex items-center gap-2">
             <Send size={16} className="text-info" />
             <span className="text-[13.5px] font-medium">Telegram-бот</span>
-            {tg.data?.linked ? <Badge tone="good">привязан</Badge> : <Badge>не привязан</Badge>}
+            {tg.isPending ? <Skeleton className="h-[22px] w-20 rounded-full" /> : tg.data?.linked ? <Badge tone="good">привязан</Badge> : <Badge>не привязан</Badge>}
           </div>
-          {!tg.data?.enabled ? (
+          {tg.isPending ? (
+            <div className="space-y-2.5">
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-2/3" />
+              <Skeleton className="mt-3 h-9 w-44" />
+            </div>
+          ) : !tg.data?.enabled ? (
             <p className="text-[12.5px] leading-relaxed text-fg-3">
               Бот не настроен на сервере. Создайте бота у @BotFather и задайте переменную окружения <code className="rounded bg-surface-2 px-1">TELEGRAM_BOT_TOKEN</code> — инструкция в README.
             </p>
@@ -316,13 +333,13 @@ function Notifications() {
                     <Button icon={ExternalLink}>Открыть @{tg.data.username}</Button>
                   </a>
                 )}
-                <Button variant="danger" onClick={unlink}>
+                <Button variant="danger" onClick={unlink} loading={pending === 'unlink'}>
                   Отвязать
                 </Button>
               </div>
             </div>
           ) : code ? (
-            <div className="space-y-3 text-[12.5px] leading-relaxed text-fg-2">
+            <div className="animate-[fade-in_250ms_ease-out] space-y-3 text-[12.5px] leading-relaxed text-fg-2">
               {code.link ? (
                 <a href={code.link} target="_blank" rel="noreferrer">
                   <Button variant="primary" icon={ExternalLink}>
@@ -345,14 +362,14 @@ function Notifications() {
                   Копировать
                 </Button>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => qc.invalidateQueries({ queryKey: ['telegram'] })}>
+              <Button size="sm" variant="ghost" loading={tg.isFetching} onClick={() => qc.invalidateQueries({ queryKey: ['telegram'] })}>
                 Я привязал — обновить
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
               <p className="text-[12.5px] leading-relaxed text-fg-2">Быстрый ввод задач и трат с телефона, отметка привычек, напоминания и утренняя сводка.</p>
-              <Button variant="primary" icon={Send} onClick={link}>
+              <Button variant="primary" icon={Send} onClick={link} loading={pending === 'link'}>
                 Привязать Telegram
               </Button>
             </div>

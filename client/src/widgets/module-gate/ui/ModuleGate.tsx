@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSettings, useSettingsLoaded, type ModuleKey } from '@/shared/api'
-import { Button, Card, Empty } from '@/shared/ui'
+import { Button, Card, Empty, SuspenseSkeleton } from '@/shared/ui'
 import { isEnabled, moduleByKey, moduleLabel } from '@/entities/module'
 import { useModuleToggle } from '@/features/toggle-module'
 
@@ -8,7 +8,7 @@ export function ModuleGate({ module, children }: { module: ModuleKey; children: 
   const settings = useSettings()
   const loaded = useSettingsLoaded()
   const toggle = useModuleToggle()
-  if (!loaded) return null
+  if (!loaded) return <SuspenseSkeleton />
   if (isEnabled(settings, module)) return <>{children}</>
   return (
     <Card className="mx-auto mt-10 max-w-lg">

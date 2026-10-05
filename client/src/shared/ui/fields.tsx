@@ -85,11 +85,11 @@ export function Select({
           type="button"
           disabled={disabled}
           data-autofocus={autoFocus ? '' : undefined}
-          className={clsx(controlCls, 'flex h-9 items-center gap-2 px-3 text-left', open && 'border-accent ring-2 ring-accent/15', className)}
+          className={clsx(controlCls, 'flex h-9 items-center gap-2 px-3 text-left', open && 'border-accent ring-[3px] ring-accent/15', className)}
         >
           {selected?.dot && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: selected.dot }} />}
           <span className={clsx('min-w-0 flex-1 truncate', !selected && 'text-fg-3')}>{selected ? selected.label : placeholder}</span>
-          <ChevronDown size={14} className={clsx('shrink-0 text-fg-3 transition-transform', open && 'rotate-180')} />
+          <ChevronDown size={14} className={clsx('shrink-0 text-fg-3 transition-transform duration-200', open && 'rotate-180')} />
         </button>
       }
     >
@@ -122,7 +122,7 @@ export function Select({
   )
 }
 
-const itemCls = 'flex h-8 cursor-pointer items-center gap-2 rounded-[6px] px-2 text-[13.5px] outline-none select-none data-[selected=true]:bg-hover'
+const itemCls = 'flex h-8 cursor-pointer items-center gap-2 rounded-[6px] px-2 text-[13.5px] outline-none select-none transition-colors duration-100 data-[selected=true]:bg-hover'
 
 const intoPopover = (e: React.FocusEvent) => !!(e.relatedTarget as HTMLElement | null)?.closest('[data-radix-popper-content-wrapper]')
 
@@ -344,7 +344,7 @@ export function TimePicker({ value, onChange, placeholder = 'чч:мм', classNa
               onChange(t)
               setOpen(false)
             }}
-            className={clsx('flex h-8 w-full items-center rounded-md px-2.5 text-[13px] tabular hover:bg-hover', t === value && 'bg-accent-soft font-medium text-accent-text')}
+            className={clsx('flex h-8 w-full shrink-0 items-center rounded-md px-2.5 text-[13px] tabular transition-colors duration-100 hover:bg-hover', t === value && 'bg-accent-soft font-medium text-accent-text')}
           >
             {t}
           </button>

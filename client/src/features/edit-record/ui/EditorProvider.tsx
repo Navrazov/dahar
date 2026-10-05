@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, useList, useSettings, type CollectionName } from '@/shared/api'
@@ -17,25 +17,34 @@ interface State {
 
 export function EditorProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State | null>(null)
+  const [visible, setVisible] = useState(false)
+  const unmount = useRef<ReturnType<typeof setTimeout>>(undefined)
   const settings = useSettings()
   const open = useCallback<OpenEditor>(
     (table, initial = {}, opts) => {
       const cfg = entities[table]
       if (!cfg) return
       const values = initial.id ? { ...initial } : { ...(cfg.defaults?.(settings) ?? {}), ...initial }
+      clearTimeout(unmount.current)
       setState({ table, values, onSaved: opts?.onSaved })
+      setVisible(true)
     },
     [settings],
   )
+  // держим модалку смонтированной, пока проигрывается анимация закрытия
+  const close = useCallback(() => {
+    setVisible(false)
+    unmount.current = setTimeout(() => setState(null), 200)
+  }, [])
   return (
     <EditorContext.Provider value={open}>
       {children}
-      {state && <EditorModal key={`${state.table}-${state.values.id ?? 'new'}`} state={state} onClose={() => setState(null)} />}
+      {state && <EditorModal key={`${state.table}-${state.values.id ?? 'new'}`} state={state} open={visible} onClose={close} />}
     </EditorContext.Provider>
   )
 }
 
-function EditorModal({ state, onClose }: { state: State; onClose: () => void }) {
+function EditorModal({ state, open, onClose }: { state: State; open: boolean; onClose: () => void }) {
   const cfg = entities[state.table]!
   const qc = useQueryClient()
   const settings = useSettings()
@@ -43,6 +52,7 @@ function EditorModal({ state, onClose }: { state: State; onClose: () => void }) 
   const [values, setValues] = useState<Values>(state.values)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const isEdit = !!values.id
 
   const set = (name: string, v: unknown) => {
@@ -82,6 +92,7 @@ function EditorModal({ state, onClose }: { state: State; onClose: () => void }) 
   }
 
   const remove = async () => {
+    setRemoving(true)
     try {
       await api.remove(state.table, values.id)
       await qc.invalidateQueries()
@@ -89,21 +100,23 @@ function EditorModal({ state, onClose }: { state: State; onClose: () => void }) 
       onClose()
     } catch (e) {
       toast.error((e as Error).message)
+    } finally {
+      setRemoving(false)
     }
   }
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={isEdit ? cfg.title : cfg.newLabel}
       width={cfg.fields.length > 10 ? 680 : 560}
       footer={
         <>
-          <div>{isEdit && <ConfirmButton onConfirm={remove} />}</div>
+          <div>{isEdit && <ConfirmButton onConfirm={remove} loading={removing} />}</div>
           <div className="flex gap-2">
             <Button onClick={onClose}>Отмена</Button>
-            <Button variant="primary" onClick={save} disabled={busy}>
+            <Button variant="primary" onClick={save} loading={busy}>
               {isEdit ? 'Сохранить' : 'Создать'}
             </Button>
           </div>

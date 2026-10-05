@@ -25,7 +25,7 @@ export function Progress({ value, color, className, size = 'md' }: { value: numb
   const v = Math.max(0, Math.min(1, value || 0))
   return (
     <div className={clsx('w-full overflow-hidden rounded-full bg-surface-2', size === 'sm' ? 'h-1' : 'h-1.5', className)} role="progressbar" aria-valuenow={Math.round(v * 100)}>
-      <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${v * 100}%`, background: color || 'var(--accent)' }} />
+      <div className="h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${v * 100}%`, background: color || 'var(--accent)' }} />
     </div>
   )
 }
@@ -47,8 +47,8 @@ export function Checkbox({ checked, onChange, color, label }: { checked: boolean
         onChange()
       }}
       className={clsx(
-        'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors',
-        checked ? 'border-transparent text-white' : 'border-line-strong hover:border-fg-3',
+        'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,transform] duration-200 active:scale-90',
+        checked ? 'border-transparent text-white animate-[check-in_260ms_var(--ease-out)]' : 'border-line-strong hover:border-fg-3',
       )}
       style={checked ? { background: color || 'var(--accent)' } : undefined}
     >

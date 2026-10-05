@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, useList, useSettings, type StatementPreview, type StatementRow } from '@/shared/api'
 import { fmtDate, money, plural } from '@/shared/lib'
-import { Button, Empty, FieldLabel, Modal, Select } from '@/shared/ui'
+import { Button, Empty, FieldLabel, Modal, Select, Spinner } from '@/shared/ui'
 
 const banks = { tbank: 'Т-Банк', sber: 'Сбер' }
 
@@ -97,7 +97,10 @@ function Pick({ onParsed, onClose }: { onParsed: (p: Parsed) => void; onClose: (
               busy && 'pointer-events-none opacity-60',
             )}
           >
-            <span className="text-[14px] font-medium">{busy ? 'Читаю выписку…' : 'Выберите файл или перетащите сюда'}</span>
+            <span className="flex items-center gap-2 text-[14px] font-medium">
+              {busy && <Spinner />}
+              {busy ? 'Читаю выписку…' : 'Выберите файл или перетащите сюда'}
+            </span>
             <span className="text-[12.5px] text-fg-3">CSV или PDF, до 10 МБ</span>
             <input ref={input} type="file" accept=".csv,.pdf,text/csv,application/pdf" className="hidden" onChange={(e) => parse(e.target.files?.[0])} />
           </label>
@@ -201,7 +204,7 @@ function Review({
             Другой файл
           </Button>
           <div className="flex-1" />
-          <Button variant="primary" disabled={busy || !chosen.length} onClick={save}>
+          <Button variant="primary" loading={busy} disabled={!chosen.length} onClick={save}>
             {chosen.length ? `Сохранить ${chosen.length} ${plural(chosen.length, 'операцию', 'операции', 'операций')}` : 'Нечего сохранять'}
           </Button>
         </>

@@ -12,7 +12,7 @@ import { coreNav, quickAdd } from './nav'
 
 const itemCls = (active: boolean) =>
   clsx(
-    'flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[14px] transition-colors',
+    'flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[14px] transition-[background-color,color,box-shadow] duration-200',
     active ? 'bg-surface font-medium text-fg shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-fg-2 hover:bg-hover hover:text-fg',
   )
 

@@ -50,8 +50,8 @@ export function LoginForm() {
             </button>
           </div>
         </FieldLabel>
-        {error && <p className="text-[13px] text-bad">{error}</p>}
-        <Button type="submit" variant="primary" disabled={busy} className="h-10 w-full">
+        {error && <p className="animate-[fade-in_200ms_ease-out] text-[13px] text-bad">{error}</p>}
+        <Button type="submit" variant="primary" loading={busy} className="h-10 w-full">
           {busy ? 'Входим…' : 'Войти'}
         </Button>
       </div>
