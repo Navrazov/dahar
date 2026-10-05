@@ -69,3 +69,12 @@ export function deviceOf(ua: string | null) {
             : ''
   return [browser, os].filter(Boolean).join(', ') || ua.slice(0, 40)
 }
+export const activationLabels: Record<string, string> = {
+  first_task: 'Создали задачу',
+  first_completion: 'Выполнили задачу',
+  first_habit: 'Завели привычку',
+  telegram_linked: 'Подключили Telegram',
+  weekly_review_opened: 'Открыли итоги недели',
+  first_review: 'Сохранили итоги недели',
+  onboarding_completed: 'Завершили знакомство',
+}

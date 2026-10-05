@@ -35,6 +35,7 @@ test.describe('signed in', () => {
 
   test('the N key opens a new task from anywhere', async ({ page }) => {
     await page.goto('/goals')
+    await expect(page.getByRole('heading', { name: 'Цели', exact: true })).toBeVisible()
     await page.keyboard.press('n')
     await expect(editor(page).getByRole('heading', { name: 'Новая задача' })).toBeVisible()
   })

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/shared/api'
 import { shortDay } from '@/shared/lib'
-import { Card, CardHeader, Empty, PageHeader, Table } from '@/shared/ui'
+import { Card, CardHeader, Empty, QueryState, QueryToolbar, PageHeader, Table } from '@/shared/ui'
 
 function cellStyle(share: number | null) {
   if (share == null) return undefined
@@ -10,15 +10,17 @@ function cellStyle(share: number | null) {
 }
 
 export function ActivityPage() {
-  const { data } = useQuery({ queryKey: ['retention'], queryFn: api.retention })
-  if (!data) return null
+  const query = useQuery({ queryKey: ['retention'], queryFn: api.retention })
+  const { data } = query
+  if (!data) return <QueryState query={query} title="Активность" />
   const maxWeeks = Math.max(1, ...data.cohorts.map((c) => c.weeks.findLastIndex((w) => w != null) + 1))
 
   return (
-    <>
+    <div className="content-enter">
       <PageHeader title="Активность" subtitle="Возвращаются ли люди после регистрации. Строка — неделя регистрации, столбец — сколько недель прошло." />
+      <QueryToolbar query={query} />
       <Card className="mb-5">
-        <CardHeader title="Удержание по неделям" sub="12 недель" />
+        <CardHeader title="Удержание по неделям" sub="12 недель · текущая неделя ещё не завершена" />
         {!data.cohorts.length ? (
           <Empty title="За 12 недель регистраций не было" />
         ) : (
@@ -43,7 +45,11 @@ export function ActivityPage() {
                     const share = users == null ? null : users / c.size
                     return (
                       <td key={w} className="!px-1 text-center tabular">
-                        {share != null && (
+                        {share == null ? (
+                          <span className="text-fg-3" title="Эта неделя ещё не наступила">
+                            —
+                          </span>
+                        ) : (
                           <span className="inline-block w-full rounded-[5px] py-1 text-[12.5px]" style={cellStyle(share)} title={`${users} из ${c.size}`}>
                             {Math.round(share * 100)}%
                           </span>
@@ -74,6 +80,6 @@ export function ActivityPage() {
           </div>
         )}
       </Card>
-    </>
+    </div>
   )
 }

@@ -2,23 +2,23 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '@/shared/api'
-import { ago, bytes, collectionLabels, dateTime, deviceOf, moduleLabels, num } from '@/shared/lib'
-import { Badge, Card, CardHeader, Empty, KeyValue, MetricStrip, PageHeader, Table } from '@/shared/ui'
+import { ago, bytes, collectionLabels, dateTime, activationLabels, deviceOf, moduleLabels, num } from '@/shared/lib'
+import { Badge, Card, CardHeader, Empty, KeyValue, MetricStrip, PageHeader, QueryState, QueryToolbar, Table } from '@/shared/ui'
 import { ActivityGrid, RankBars } from '@/shared/ui/charts'
 import { UserActions } from '@/features/manage-user'
 
 export function UserPage() {
   const id = Number(useParams().id)
-  const { data: u, isError } = useQuery({ queryKey: ['user', id], queryFn: () => api.user(id), retry: false })
+  const query = useQuery({ queryKey: ['user', id], queryFn: () => api.user(id), retry: false })
 
-  if (isError) return <Empty title="Пользователь не найден" />
-  if (!u) return null
+  const { data: u } = query
+  if (!u) return <QueryState query={query} title="Пользователь" />
 
   const records = u.collections.reduce((a, c) => a + c.total, 0)
   const activeDays = u.activity.filter((d) => d.value).length
 
   return (
-    <>
+    <div className="content-enter">
       <Link to="/users" className="mb-3 inline-flex items-center gap-1 text-[13px] text-fg-3 hover:text-fg">
         <ArrowLeft size={14} /> Пользователи
       </Link>
@@ -34,6 +34,7 @@ export function UserPage() {
         actions={<UserActions user={u} />}
       />
 
+      <QueryToolbar query={query} />
       <MetricStrip
         className="mb-8"
         items={[
@@ -61,6 +62,14 @@ export function UserPage() {
             )}
           </Card>
           <Card>
+            <CardHeader title="Первые полезные действия" />
+            {u.milestones.length ? (
+              <KeyValue items={u.milestones.map((m) => [activationLabels[m.event] ?? m.event, dateTime(m.created_at)])} />
+            ) : (
+              <Empty title="Пока нет отмеченных шагов" />
+            )}
+          </Card>
+          <Card>
             <CardHeader title="Активные сессии" sub={u.sessions.length} />
             {!u.sessions.length ? (
               <Empty title="Нет активных сессий" />
@@ -71,6 +80,7 @@ export function UserPage() {
                     <th>Устройство</th>
                     <th>IP</th>
                     <th>Вход</th>
+                    <th>Истекает</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -79,6 +89,7 @@ export function UserPage() {
                       <td>{deviceOf(s.user_agent)}</td>
                       <td className="text-fg-2 tabular">{s.ip ?? '—'}</td>
                       <td className="whitespace-nowrap text-fg-2">{dateTime(s.created_at)}</td>
+                      <td className="whitespace-nowrap text-fg-3">{dateTime(s.expires_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -91,6 +102,13 @@ export function UserPage() {
           <KeyValue
             items={[
               ['ID', u.id],
+              ['Защита 2FA', <Badge tone={u.two_factor ? 'good' : 'warn'}>{u.two_factor ? 'Включена' : 'Не включена'}</Badge>],
+              ['Напоминания', u.reminders_enabled ? 'Включены' : 'Выключены'],
+              ['Время дайджеста', `${u.digest_hour}:00`],
+              ['Подписки Web Push', u.health.push_subscriptions],
+              ['Резервные версии', u.health.backups],
+              ['Ошибки за 30 дней', u.health.errors30],
+              ['Исчерпаны попытки доставки', u.health.failed_deliveries],
               ['Создан', dateTime(u.created_at)],
               ['Часовой пояс', u.timezone ?? '—'],
               ['Валюта', u.currency ?? '₽'],
@@ -99,6 +117,6 @@ export function UserPage() {
           />
         </Card>
       </div>
-    </>
+    </div>
   )
 }

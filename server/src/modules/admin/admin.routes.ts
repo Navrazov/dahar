@@ -1,16 +1,17 @@
 import { Router } from 'express'
-import { verifyAgainstNothing, verifyPassword } from '../../lib/crypto.ts'
+import { hashPassword, verifyAgainstNothing, verifyPassword } from '../../lib/crypto.ts'
 import { badRequest, notFound } from '../../lib/errors.ts'
 import { createLimiter } from '../../lib/rate-limit.ts'
 import { MIN_PASSWORD } from '../auth/auth.routes.ts'
 import * as twoFactor from '../auth/two-factor.ts'
 import { userSessions } from '../auth/user-sessions.ts'
-import { createUser, deleteUser, findById, findByLogin, LOGIN_PATTERN, normalizeLogin, setPassword } from '../users/users.repository.ts'
-import { query } from '../../db/pool.ts'
+import { createUser, deleteUser, findById, findByLogin, LOGIN_PATTERN, normalizeLogin } from '../users/users.repository.ts'
+import { query, tx } from '../../db/pool.ts'
 import { requireAdmin } from './admin.middleware.ts'
 import { audit, findAdminById, findAdminByLogin, listAudit, markAdminLogin, setAdminPassword } from './admin.repository.ts'
 import { adminSessions } from './admin.sessions.ts'
 import { clearErrors, listErrors, listUsers, overview, retention, systemInfo, userDetail } from './admin.stats.ts'
+import { auditPage, operations, usersPage } from './admin.reporting.ts'
 
 const byIp = createLimiter({ max: 5, windowMs: 15 * 60 * 1000 })
 const byLogin = createLimiter({ max: 10, windowMs: 60 * 60 * 1000 })
@@ -18,6 +19,7 @@ const byLogin = createLimiter({ max: 10, windowMs: 60 * 60 * 1000 })
 const validPassword = (p: unknown): p is string => typeof p === 'string' && p.length >= MIN_PASSWORD
 
 async function userOr404(id: unknown) {
+  if (!Number.isSafeInteger(Number(id)) || Number(id) < 1) throw notFound('Пользователь не найден')
   const user = await findById(Number(id))
   if (!user) throw notFound('Пользователь не найден')
   return user
@@ -93,7 +95,7 @@ function authRoutes() {
 function usersRoutes() {
   const r = Router()
 
-  r.get('/', async (_req, res) => res.json(await listUsers()))
+  r.get('/', async (req, res) => res.json(req.query.paged === '1' ? await usersPage(req.query) : await listUsers()))
 
   r.post('/', async (req, res) => {
     const login = normalizeLogin(req.body?.login)
@@ -107,6 +109,7 @@ function usersRoutes() {
   })
 
   r.get('/:id', async (req, res) => {
+    await userOr404(req.params.id)
     const detail = await userDetail(Number(req.params.id))
     if (!detail) throw notFound('Пользователь не найден')
     res.json(detail)
@@ -115,20 +118,27 @@ function usersRoutes() {
   r.patch('/:id', async (req, res) => {
     const user = await userOr404(req.params.id)
     const { name, password, blocked } = req.body || {}
-    if (name !== undefined) {
-      await query('UPDATE users SET name = $1 WHERE id = $2', [String(name).trim() || user.login, user.id])
-      await audit(req, 'user_rename', user.login, { name })
-    }
-    if (password !== undefined) {
-      if (!validPassword(password)) throw badRequest(`Пароль — минимум ${MIN_PASSWORD} символов`)
-      await setPassword(user.id, password)
-      await audit(req, 'user_password', user.login)
-    }
-    if (blocked !== undefined) {
-      await query('UPDATE users SET blocked_at = $1 WHERE id = $2', [blocked ? new Date() : null, user.id])
-      if (blocked) await userSessions.endAllFor(user.id)
-      await audit(req, blocked ? 'user_block' : 'user_unblock', user.login)
-    }
+    if (name !== undefined && (typeof name !== 'string' || name.length > 100)) throw badRequest('Имя — строка до 100 символов')
+    if (password !== undefined && (!validPassword(password) || password.length > 256)) throw badRequest(`Пароль — от ${MIN_PASSWORD} до 256 символов`)
+    if (blocked !== undefined && typeof blocked !== 'boolean') throw badRequest('Статус блокировки должен быть true или false')
+    const passwordHash = password !== undefined ? await hashPassword(password) : null
+    await tx(async (c) => {
+      if (!(await query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [user.id], c)).rows.length) throw notFound('Пользователь не найден')
+      if (name !== undefined) {
+        await query('UPDATE users SET name = $1 WHERE id = $2', [name.trim() || user.login, user.id], c)
+        await audit(req, 'user_rename', user.login, { name }, c)
+      }
+      if (password !== undefined) {
+        await query('UPDATE users SET password_hash=$1 WHERE id=$2', [passwordHash, user.id], c)
+        await query('DELETE FROM sessions WHERE user_id=$1', [user.id], c)
+        await audit(req, 'user_password', user.login, null, c)
+      }
+      if (blocked !== undefined) {
+        await query('UPDATE users SET blocked_at = $1 WHERE id = $2', [blocked ? new Date() : null, user.id], c)
+        if (blocked) await query('DELETE FROM sessions WHERE user_id=$1', [user.id], c)
+        await audit(req, blocked ? 'user_block' : 'user_unblock', user.login, null, c)
+      }
+    })
     res.json(await userDetail(user.id))
   })
 
@@ -152,6 +162,10 @@ function usersRoutes() {
 
 export function adminRoutes() {
   const r = Router()
+  r.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store')
+    next()
+  })
 
   r.use('/auth', authRoutes())
   r.use(requireAdmin)
@@ -160,13 +174,14 @@ export function adminRoutes() {
   r.use('/users', usersRoutes())
   r.get('/retention', async (_req, res) => res.json(await retention()))
   r.get('/system', async (_req, res) => res.json(await systemInfo()))
-  r.get('/errors', async (req, res) => res.json(await listErrors({ source: req.query.source, limit: req.query.limit })))
+  r.get('/operations', async (_req, res) => res.json(await operations()))
+  r.get('/errors', async (req, res) => res.json(await listErrors(req.query)))
   r.delete('/errors', async (req, res) => {
     const removed = await clearErrors()
     await audit(req, 'errors_clear', null, { removed })
     res.json({ removed })
   })
-  r.get('/audit', async (_req, res) => res.json(await listAudit()))
+  r.get('/audit', async (req, res) => res.json(req.query.paged === '1' ? await auditPage(req.query) : await listAudit()))
 
   r.use((_req, res) => res.status(404).json({ error: 'Не найдено' }))
 

@@ -1,6 +1,6 @@
 import type { Request } from 'express'
 import { config } from '../../config.ts'
-import { query, type DbRow } from '../../db/pool.ts'
+import { pool, query, type Db, type DbRow } from '../../db/pool.ts'
 import type { SessionAdmin } from '../../express.d.ts'
 import { hashPassword } from '../../lib/crypto.ts'
 
@@ -56,14 +56,12 @@ export async function ensureBootstrapAdmin() {
   return createAdmin(login, password)
 }
 
-export function audit(req: Request, action: string, target: unknown = null, meta: Record<string, unknown> | null = null) {
-  return query('INSERT INTO admin_audit (admin_id, action, target, meta, ip) VALUES ($1, $2, $3, $4, $5)', [
-    req.admin?.id ?? null,
-    action,
-    target == null ? null : String(target),
-    meta ? JSON.stringify(meta) : null,
-    req.ip ?? null,
-  ])
+export function audit(req: Request, action: string, target: unknown = null, meta: Record<string, unknown> | null = null, client: Db = pool) {
+  return query(
+    'INSERT INTO admin_audit (admin_id, action, target, meta, ip) VALUES ($1, $2, $3, $4, $5)',
+    [req.admin?.id ?? null, action, target == null ? null : String(target), meta ? JSON.stringify(meta) : null, req.ip ?? null],
+    client,
+  )
 }
 
 export async function listAudit(limit = 200) {

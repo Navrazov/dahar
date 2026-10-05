@@ -169,6 +169,23 @@ export const migrations: Migration[] = [
         )
     },
   },
+  {
+    id: '007_admin_reporting_indexes',
+    up: async (c) => {
+      await query(
+        `
+        CREATE INDEX IF NOT EXISTS idx_users_admin_created ON users(created_at DESC,id DESC);
+        CREATE INDEX IF NOT EXISTS idx_users_admin_seen ON users(last_seen_at DESC NULLS LAST,id DESC);
+        CREATE INDEX IF NOT EXISTS idx_error_log_source_created ON error_log(source,created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_error_log_user_created ON error_log(user_id,created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_admin_audit_action_cursor ON admin_audit(action,id DESC);
+      `,
+        [],
+        c,
+      )
+      for (const table of tableOrder) await query(`CREATE INDEX IF NOT EXISTS ${q('idx_' + table + '_created_at')} ON ${q(table)}(created_at)`, [], c)
+    },
+  },
 ]
 
 type Log = (message: string) => void

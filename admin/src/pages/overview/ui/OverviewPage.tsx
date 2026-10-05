@@ -1,20 +1,35 @@
+import { OperationsPanel } from '@/widgets/operations'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/shared/api'
 import { bytes, collectionLabels, moduleLabels, num, pct } from '@/shared/lib'
-import { Card, CardHeader, MetricStrip, PageHeader } from '@/shared/ui'
+import { Card, CardHeader, MetricStrip, QueryState, QueryToolbar, PageHeader, Segmented, Empty } from '@/shared/ui'
 import { DailyArea, DailyBars, RankBars } from '@/shared/ui/charts'
 
 export function OverviewPage() {
-  const { data } = useQuery({ queryKey: ['overview'], queryFn: api.overview, refetchInterval: 60_000 })
-  if (!data) return null
+  const [period, setPeriod] = useState('30')
+  const query = useQuery({ queryKey: ['overview'], queryFn: api.overview, refetchInterval: 60_000 })
+  const { data } = query
+  if (!data) return <QueryState query={query} title="Обзор" />
   const t = data.totals
-  const last30 = data.daily.slice(-30)
+  const chartDays = data.daily.slice(-Number(period))
   const series = (key: 'signups' | 'active' | 'records', days = data.daily) => days.map((d) => ({ day: d.day, value: d[key] }))
   const stickiness = t.mau ? t.dau / t.mau : 0
 
   return (
-    <>
+    <div className="content-enter">
       <PageHeader title="Обзор" subtitle="Как живёт сервис. Здесь только количества, содержимое записей пользователей не показывается." />
+      <QueryToolbar query={query}>
+        <Segmented
+          value={period}
+          onChange={setPeriod}
+          options={[
+            { value: '7', label: '7 дней' },
+            { value: '30', label: '30 дней' },
+            { value: '90', label: '90 дней' },
+          ]}
+        />
+      </QueryToolbar>
 
       <MetricStrip
         className="mb-4"
@@ -59,26 +74,35 @@ export function OverviewPage() {
       </Card>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="lg:col-span-2">
-          <CardHeader title="Активные пользователи по дням" sub="90 дней" />
+          <CardHeader title="Активные пользователи по дням" sub={`${period} дней`} />
           <div className="px-2 pb-3">
-            <DailyArea data={series('active')} name="Активных" height={220} />
+            <DailyArea data={series('active', chartDays)} name="Активных" height={220} />
           </div>
         </Card>
         <Card>
-          <CardHeader title="Регистрации" sub="30 дней" />
+          <CardHeader title="Регистрации" sub={`${period} дней`} />
           <div className="px-2 pb-3">
-            <DailyBars data={series('signups', last30)} name="Новых" color="var(--s3)" />
+            <DailyBars data={series('signups', chartDays)} name="Новых" color="var(--s3)" />
           </div>
         </Card>
         <Card>
-          <CardHeader title="Создано записей" sub="30 дней" />
+          <CardHeader title="Создано записей" sub={`${period} дней`} />
           <div className="px-2 pb-3">
-            <DailyBars data={series('records', last30)} name="Записей" color="var(--s7)" />
+            <DailyBars data={series('records', chartDays)} name="Записей" color="var(--s7)" />
           </div>
         </Card>
         <Card>
           <CardHeader title="Что заводят чаще всего" sub="всего записей" />
-          <RankBars items={data.collections.slice(0, 10).map((c) => ({ label: collectionLabels[c.collection] ?? c.collection, value: c.total }))} />
+          {t.records ? (
+            <RankBars
+              items={data.collections
+                .filter((c) => c.total > 0)
+                .slice(0, 10)
+                .map((c) => ({ label: collectionLabels[c.collection] ?? c.collection, value: c.total }))}
+            />
+          ) : (
+            <Empty title="Записей пока нет" />
+          )}
         </Card>
         <Card>
           <CardHeader title="Подключённые направления" sub="доля пользователей" />
@@ -89,6 +113,7 @@ export function OverviewPage() {
           />
         </Card>
       </div>
-    </>
+      <OperationsPanel />
+    </div>
   )
 }

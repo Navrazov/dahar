@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, UNAUTHORIZED_EVENT } from '@/shared/api'
 import { AdminContext, ME_KEY, signOutLocally } from '@/entities/session'
+import { QueryState } from '@/shared/ui'
 import { LoginPage } from '@/pages/login'
 
 export function AdminGate({ children }: { children: ReactNode }) {
@@ -23,8 +24,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onExpired)
   }, [qc])
 
-  if (me.isPending) return null
-  if (me.isError) return <p className="p-10 text-center text-[14px] text-fg-2">Сервер не отвечает.</p>
+  if (me.isPending || me.isError)
+    return (
+      <main className="mx-auto max-w-4xl p-6">
+        <QueryState query={me} title="Вход в админку" />
+      </main>
+    )
   if (!me.data) return <LoginPage />
   return <AdminContext.Provider value={me.data}>{children}</AdminContext.Provider>
 }

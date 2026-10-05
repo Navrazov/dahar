@@ -1,5 +1,7 @@
 import { request } from './http'
-import type { Admin, AdminLoginStep, AuditEntry, DailyPoint, ErrorEntry, Overview, Retention, SystemInfo, UserDetail, UserRow } from './types'
+import type { Admin, AdminLoginStep, AuditPage, ErrorsPage, Operations, Overview, Retention, SystemInfo, UserDetail, UserRow, UsersPage } from './types'
+
+const search = (params: Record<string, string | number>) => new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
 
 export const api = {
   me: () => request<{ admin: Admin }>('/auth/me'),
@@ -9,7 +11,7 @@ export const api = {
   changePassword: (current: string, next: string) => request('/auth/password', { method: 'POST', json: { current, next } }),
 
   overview: () => request<Overview>('/overview'),
-  users: () => request<UserRow[]>('/users'),
+  users: (params: Record<string, string | number>, signal?: AbortSignal) => request<UsersPage>(`/users?paged=1&${search(params)}`, { signal }),
   user: (id: number) => request<UserDetail>(`/users/${id}`),
   createUser: (data: { login: string; password: string; name?: string }) => request<UserRow>('/users', { method: 'POST', json: data }),
   updateUser: (id: number, data: { name?: string; password?: string; blocked?: boolean }) =>
@@ -19,7 +21,8 @@ export const api = {
 
   retention: () => request<Retention>('/retention'),
   system: () => request<SystemInfo>('/system'),
-  errors: (source: string) => request<{ items: ErrorEntry[]; daily: DailyPoint[] }>(`/errors${source ? `?source=${source}` : ''}`),
+  operations: () => request<Operations>('/operations'),
+  errors: (params: Record<string, string | number>, signal?: AbortSignal) => request<ErrorsPage>(`/errors?${search(params)}`, { signal }),
   clearErrors: () => request<{ removed: number }>('/errors', { method: 'DELETE' }),
-  audit: () => request<AuditEntry[]>('/audit'),
+  audit: (params: Record<string, string | number>, signal?: AbortSignal) => request<AuditPage>(`/audit?paged=1&${search(params)}`, { signal }),
 }

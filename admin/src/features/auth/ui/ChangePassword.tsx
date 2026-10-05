@@ -27,12 +27,12 @@ export function ChangePassword() {
       <CardHeader title="Пароль администратора" />
       <div className="space-y-3 px-4 pb-4">
         <Field label="Текущий пароль">
-          <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+          <Input readOnly={busy} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </Field>
         <Field label="Новый пароль" hint="Не короче 8 символов">
-          <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+          <Input readOnly={busy} type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
         </Field>
-        <Button variant="primary" onClick={submit} disabled={busy || !current || next.length < 8}>
+        <Button variant="primary" onClick={submit} loading={busy} disabled={!current || next.length < 8}>
           Сменить пароль
         </Button>
       </div>

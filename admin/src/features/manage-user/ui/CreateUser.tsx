@@ -15,8 +15,10 @@ export function CreateUser() {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ login: '', name: '', password: '' })
   const [busy, setBusy] = useState(false)
+  const [created, setCreated] = useState<string | null>(null)
 
   const start = () => {
+    setCreated(null)
     setForm({ login: '', name: '', password: generatePassword() })
     setOpen(true)
   }
@@ -26,9 +28,18 @@ export function CreateUser() {
     try {
       const user = await api.createUser(form)
       await qc.invalidateQueries()
-      await navigator.clipboard?.writeText(`Логин: ${user.login}\nПароль: ${form.password}`).catch(() => {})
-      toast.success(`Пользователь ${user.login} создан. Логин и пароль скопированы`)
-      setOpen(false)
+      let copied = false
+      try {
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(`Логин: ${user.login}\nПароль: ${form.password}`)
+          copied = true
+        }
+      } catch {
+        /* Clipboard can be unavailable in an embedded browser. */
+      }
+      toast.success(`Пользователь ${user.login} создан${copied ? '. Логин и пароль скопированы' : '. Сохраните введённый пароль'}`)
+      setCreated(user.login)
+      if (copied) setOpen(false)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -45,28 +56,37 @@ export function CreateUser() {
       </Button>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        title="Новый пользователь"
+        onClose={() => !busy && setOpen(false)}
+        title={created ? 'Пользователь создан' : 'Новый пользователь'}
         footer={
-          <>
-            <Button onClick={() => setOpen(false)}>Отмена</Button>
-            <Button variant="primary" onClick={submit} disabled={busy || !form.login || form.password.length < 8}>
-              Создать
-            </Button>
-          </>
+          created ? (
+            <Button onClick={() => setOpen(false)}>Готово</Button>
+          ) : (
+            <>
+              <Button disabled={busy} onClick={() => setOpen(false)}>
+                Отмена
+              </Button>
+              <Button variant="primary" onClick={submit} loading={busy} disabled={!form.login || form.password.length < 8}>
+                Создать
+              </Button>
+            </>
+          )
         }
       >
         <div className="space-y-3.5">
           <Field label="Логин" hint="Латиница, цифры, точка, дефис">
-            <Input value={form.login} onChange={set('login')} autoCapitalize="none" autoFocus />
+            <Input value={created || form.login} readOnly={busy || !!created} onChange={set('login')} autoCapitalize="none" maxLength={32} />
           </Field>
           <Field label="Имя">
-            <Input value={form.name} onChange={set('name')} />
+            <Input value={form.name} readOnly={busy || !!created} onChange={set('name')} maxLength={100} />
           </Field>
-          <Field label="Пароль" hint="Сгенерирован автоматически, после создания скопируется вместе с логином">
+          {created && <p className="text-[13px] text-good">Аккаунт создан. Буфер обмена недоступен: сохраните логин и пароль вручную перед закрытием.</p>}
+          <Field label="Пароль" hint="Сгенерирован автоматически; после создания попробуем скопировать доступ">
             <div className="flex gap-2">
-              <Input value={form.password} onChange={set('password')} className="font-mono" />
-              <Button onClick={() => setForm((f) => ({ ...f, password: generatePassword() }))}>Другой</Button>
+              <Input value={form.password} readOnly={busy || !!created} onChange={set('password')} className="font-mono" />
+              <Button disabled={busy || !!created} onClick={() => setForm((f) => ({ ...f, password: generatePassword() }))}>
+                Другой
+              </Button>
             </div>
           </Field>
         </div>

@@ -1,81 +1,134 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Download } from 'lucide-react'
 import { api } from '@/shared/api'
-import { ago, bytes, date, num, plural } from '@/shared/lib'
-import { Badge, Card, Empty, Input, PageHeader, Segmented, Table } from '@/shared/ui'
+import { ago, bytes, date, exportCsv, num, useDebouncedValue, tableOffset } from '@/shared/lib'
+import { Badge, Button, Card, controlCls, Empty, Input, MetricStrip, PageHeader, Pagination, QueryState, QueryToolbar, Segmented, Table } from '@/shared/ui'
 import { CreateUser } from '@/features/manage-user'
 
-type Filter = 'all' | 'active' | 'idle' | 'blocked'
-
-const DAY = 86400_000
-
 export function UsersPage() {
-  const navigate = useNavigate()
-  const { data = [] } = useQuery({ queryKey: ['users'], queryFn: api.users })
-  const [q, setQ] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
-
-  const seen = (s: string | null) => (s ? Date.now() - Date.parse(s) : Infinity)
-  const shown = data.filter((u) => {
-    if (q && !`${u.login} ${u.name ?? ''}`.toLowerCase().includes(q.toLowerCase())) return false
-    if (filter === 'active') return seen(u.last_seen_at) < 7 * DAY
-    if (filter === 'idle') return seen(u.last_seen_at) >= 30 * DAY
-    if (filter === 'blocked') return !!u.blocked_at
-    return true
+  const [params, setParams] = useSearchParams()
+  const q = params.get('q') || '',
+    filter = params.get('filter') || 'all',
+    sort = params.get('sort') || 'newest'
+  const offset = tableOffset(params.get('offset')),
+    search = useDebouncedValue(q)
+  const update = (patch: Record<string, string | number>) => {
+    const next = new URLSearchParams(params)
+    next.set('offset', '0')
+    for (const [k, v] of Object.entries(patch)) next.set(k, String(v))
+    setParams(next, { replace: true })
+  }
+  const query = useQuery({
+    queryKey: ['users', search, filter, sort, offset],
+    queryFn: ({ signal }) => api.users({ q: search, filter, sort, offset, limit: 50 }, signal),
+    placeholderData: keepPreviousData,
   })
-
+  const { data } = query
+  if (!data) return <QueryState query={query} title="Пользователи" table />
+  const s = data.summary
+  const csv = () =>
+    exportCsv('dahar-users-page.csv', [
+      ['ID', 'Логин', 'Имя', 'Создан', 'Последний визит', 'Заблокирован', 'Telegram', '2FA', 'Активных дней', 'Записей', 'Сессий', 'Размер файлов'],
+      ...data.items.map((u) => [
+        u.id,
+        u.login,
+        u.name,
+        u.created_at,
+        u.last_seen_at,
+        !!u.blocked_at,
+        u.telegram,
+        u.two_factor,
+        u.active_days,
+        u.records,
+        u.sessions,
+        u.files_size,
+      ]),
+    ])
   return (
-    <>
-      <PageHeader title="Пользователи" subtitle={`${data.length} ${plural(data.length, 'аккаунт', 'аккаунта', 'аккаунтов')}`} actions={<CreateUser />} />
+    <div className="content-enter">
+      <PageHeader
+        title="Пользователи"
+        subtitle={`${num(s.total)} аккаунтов · найдено ${num(data.total)}`}
+        actions={
+          <>
+            <Button icon={Download} onClick={csv} disabled={query.isFetching || !data.items.length}>
+              CSV страницы
+            </Button>
+            <CreateUser />
+          </>
+        }
+      />
+      <QueryToolbar query={query} />
+      <MetricStrip
+        className="mb-5"
+        items={[
+          { label: 'Активны за неделю', value: s.active },
+          { label: 'Без визитов 30 дней', value: s.idle },
+          { label: 'Заблокированы', value: s.blocked },
+          { label: 'С Telegram', value: s.telegram },
+          { label: 'С защитой 2FA', value: s.secure },
+        ]}
+      />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-64">
-          <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-3" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Логин или имя" className="pl-9" />
+        <Input value={q} onChange={(e) => update({ q: e.target.value })} placeholder="Логин или имя" aria-label="Поиск пользователей" className="sm:max-w-64" />
+        <select aria-label="Сортировка пользователей" value={sort} onChange={(e) => update({ sort: e.target.value })} className={controlCls + ' sm:!w-auto'}>
+          <option value="newest">Сначала новые</option>
+          <option value="oldest">Сначала старые</option>
+          <option value="seen">Последние визиты</option>
+          <option value="login">По логину</option>
+        </select>
+        <div className="max-w-full overflow-x-auto">
+          <Segmented
+            value={filter}
+            onChange={(v) => update({ filter: v })}
+            options={[
+              { value: 'all', label: 'Все' },
+              { value: 'active', label: 'Активные' },
+              { value: 'idle', label: 'Неактивные' },
+              { value: 'blocked', label: 'Блокировки' },
+              { value: 'telegram', label: 'Telegram' },
+              { value: 'secure', label: '2FA' },
+            ]}
+          />
         </div>
-        <Segmented
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: 'Все' },
-            { value: 'active', label: 'Активны за неделю' },
-            { value: 'idle', label: 'Пропали на месяц' },
-            { value: 'blocked', label: 'Заблокированы' },
-          ]}
-        />
       </div>
-      <Card>
-        {!shown.length ? (
-          <Empty title="Никого не нашлось" />
+      <Card aria-busy={query.isFetching}>
+        {!data.items.length ? (
+          <Empty title="Никого не нашлось" hint="Попробуйте другой поиск или фильтр" />
         ) : (
           <Table>
             <thead>
               <tr>
                 <th>Пользователь</th>
                 <th>Был в сети</th>
-                <th className="!text-right">Дней за месяц</th>
-                <th className="!text-right">Записей</th>
-                <th className="!text-right">Файлы</th>
+                <th>Дней / 30</th>
+                <th>Записей</th>
+                <th>Сессий</th>
+                <th>Файлы</th>
                 <th>Создан</th>
-                <th />
+                <th>Статус</th>
               </tr>
             </thead>
             <tbody>
-              {shown.map((u) => (
-                <tr key={u.id} onClick={() => navigate(`/users/${u.id}`)} className="cursor-pointer hover:bg-hover">
+              {data.items.map((u) => (
+                <tr key={u.id} className="hover:bg-hover">
                   <td>
-                    <div className="font-medium">{u.name || u.login}</div>
-                    <div className="text-[12px] text-fg-3">@{u.login}</div>
+                    <Link to={`/users/${u.id}`} className="block font-medium text-accent-text hover:underline">
+                      {u.name || u.login}
+                      <span className="block text-[12px] font-normal text-fg-3">@{u.login}</span>
+                    </Link>
                   </td>
                   <td className="whitespace-nowrap text-fg-2">{ago(u.last_seen_at)}</td>
-                  <td className="text-right tabular">{u.active_days}</td>
-                  <td className="text-right tabular">{num(u.records)}</td>
-                  <td className="text-right text-fg-2 tabular">{bytes(u.files_size)}</td>
+                  <td className="tabular">{u.active_days}</td>
+                  <td className="tabular">{num(u.records)}</td>
+                  <td className="tabular">{u.sessions}</td>
+                  <td className="whitespace-nowrap tabular">{bytes(u.files_size)}</td>
                   <td className="whitespace-nowrap text-fg-2">{date(u.created_at)}</td>
                   <td>
-                    <div className="flex justify-end gap-1.5">
+                    <div className="flex gap-1.5">
                       {u.telegram && <Badge>Telegram</Badge>}
+                      {u.two_factor && <Badge tone="good">2FA</Badge>}
                       {u.blocked_at && <Badge tone="bad">Заблокирован</Badge>}
                     </div>
                   </td>
@@ -84,7 +137,8 @@ export function UsersPage() {
             </tbody>
           </Table>
         )}
+        <Pagination total={data.total} offset={offset} limit={50} busy={query.isFetching} onChange={(offset) => update({ offset })} />
       </Card>
-    </>
+    </div>
   )
 }

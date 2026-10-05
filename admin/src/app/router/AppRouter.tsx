@@ -1,12 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { ActivityPage } from '@/pages/activity'
-import { AuditPage } from '@/pages/audit'
-import { ErrorsPage } from '@/pages/errors'
-import { OverviewPage } from '@/pages/overview'
-import { SystemPage } from '@/pages/system'
-import { UserPage } from '@/pages/user'
-import { UsersPage } from '@/pages/users'
+import { lazy } from 'react'
 import { Shell } from '@/widgets/shell'
+const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })))
+const AuditPage = lazy(() => import('@/pages/audit').then((m) => ({ default: m.AuditPage })))
+const ErrorsPage = lazy(() => import('@/pages/errors').then((m) => ({ default: m.ErrorsPage })))
+const OverviewPage = lazy(() => import('@/pages/overview').then((m) => ({ default: m.OverviewPage })))
+const SystemPage = lazy(() => import('@/pages/system').then((m) => ({ default: m.SystemPage })))
+const UserPage = lazy(() => import('@/pages/user').then((m) => ({ default: m.UserPage })))
+const UsersPage = lazy(() => import('@/pages/users').then((m) => ({ default: m.UsersPage })))
 
 export function AppRouter() {
   return (

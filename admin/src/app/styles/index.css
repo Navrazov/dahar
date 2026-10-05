@@ -198,10 +198,10 @@ body {
   @keyframes modal-in {
     from {
       opacity: 0;
-      transform: translate(-50%, 6px);
+      transform: translateY(6px);
     }
     to {
-      transform: translate(-50%, 0);
+      transform: translateY(0);
     }
   }
 }
@@ -220,4 +220,57 @@ body {
   textarea {
     font-size: 16px !important;
   }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 65%, transparent), transparent);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+.page-enter {
+  animation: page-in 180ms ease-out;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.admin-modal[data-state='open'] {
+  animation: modal-in 180ms ease-out;
+}
+.admin-modal[data-state='closed'] {
+  animation: fade-out 120ms ease-in forwards;
+}
+.admin-overlay[data-state='open'] {
+  animation: fade-in 150ms ease-out;
+}
+.admin-overlay[data-state='closed'] {
+  animation: fade-out 120ms ease-in forwards;
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+.content-enter {
+  animation: fade-in 220ms ease-out;
 }

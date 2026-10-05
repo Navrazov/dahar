@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import clsx from 'clsx'
-import type { LucideIcon } from 'lucide-react'
+import { LoaderCircle, type LucideIcon } from 'lucide-react'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
@@ -16,11 +16,15 @@ export function Button({
   icon: Icon,
   className,
   children,
+  loading = false,
+  disabled,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; icon?: LucideIcon }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; icon?: LucideIcon; loading?: boolean }) {
   return (
     <button
       type="button"
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={clsx(
         'inline-flex h-9 items-center justify-center gap-1.5 rounded-[7px] px-3.5 text-[13.5px] font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-45',
         variants[variant],
@@ -28,7 +32,7 @@ export function Button({
       )}
       {...rest}
     >
-      {Icon && <Icon size={15} />}
+      {loading ? <LoaderCircle size={15} className="animate-spin" /> : Icon && <Icon size={15} />}
       {children}
     </button>
   )
@@ -125,10 +129,10 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
   )
 }
 
-export function Table({ children }: { children: ReactNode }) {
+export function Table({ children, maxHeight }: { children: ReactNode; maxHeight?: number }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13.5px] [&_td]:border-t [&_td]:border-line [&_td]:px-4 [&_td]:py-2.5 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:text-[12px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-fg-3">
+    <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
+      <table className="w-full border-collapse text-[13.5px] [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-surface [&_td]:border-t [&_td]:border-line [&_td]:px-4 [&_td]:py-2.5 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:text-[12px] [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-fg-3">
         {children}
       </table>
     </div>
