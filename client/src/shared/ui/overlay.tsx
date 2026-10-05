@@ -28,10 +28,15 @@ export function Modal({
         <Dialog.Overlay className="anim-overlay fixed inset-0 z-50 bg-black/35 backdrop-blur-[1px]" />
         <Dialog.Content
           onOpenAutoFocus={(e) => {
+            if (window.matchMedia('(max-width: 639px)').matches) {
+              e.preventDefault()
+              ;(e.currentTarget as HTMLElement).focus({ preventScroll: true })
+              return
+            }
             const first = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[data-autofocus], input:not([type=hidden]), textarea')
             if (first) {
               e.preventDefault()
-              first.focus()
+              first.focus({ preventScroll: true })
             }
           }}
           className={clsx(

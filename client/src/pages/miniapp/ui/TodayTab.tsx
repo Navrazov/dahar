@@ -21,12 +21,14 @@ export function TodayTab() {
   const now = open.filter((t) => t.due_date === today)
   const done = tasks.filter((t) => t.status === 'done' && t.completed_at?.slice(0, 10) === today)
 
-  const add = () => {
+  const add = async () => {
     const text = title.trim()
     if (!text) return
     haptic.tap()
-    save.mutate({ title: text[0].toUpperCase() + text.slice(1), due_date: today, status: 'todo', priority: 'medium' })
-    setTitle('')
+    try {
+      await save.mutateAsync({ title: text[0].toUpperCase() + text.slice(1), due_date: today, status: 'todo', priority: 'medium' })
+      setTitle('')
+    } catch {}
   }
 
   return (
@@ -48,7 +50,7 @@ export function TodayTab() {
         <button
           type="submit"
           aria-label="Добавить"
-          disabled={!title.trim()}
+          disabled={!title.trim() || save.isPending}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-[opacity,transform] active:scale-90 disabled:opacity-0"
         >
           <ArrowUp size={18} strokeWidth={2.4} />

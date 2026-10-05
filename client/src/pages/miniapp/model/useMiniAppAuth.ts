@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError, setAuthToken } from '@/shared/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { api, ApiError, AUTH_EXPIRED_EVENT, setAuthToken, type User } from '@/shared/api'
 import { webApp } from '@/shared/lib'
 
 export type AuthState = 'loading' | 'ready' | 'not_linked' | 'outside' | 'error'
@@ -26,8 +27,24 @@ const store = {
  * Прежний токен устройства уходит вместе с запросом, и сервер его удаляет — сессии не копятся.
  */
 export function useMiniAppAuth() {
+  const qc = useQueryClient()
+  const [user, setUser] = useState<User | null>(null)
   const [state, setState] = useState<AuthState>('loading')
   const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (state !== 'ready') return
+    const expired = () => {
+      setAuthToken(null)
+      store.set(null)
+      qc.clear()
+      setUser(null)
+      setState('loading')
+      setAttempt((a) => a + 1)
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, expired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expired)
+  }, [state, qc])
 
   useEffect(() => {
     let cancelled = false
@@ -38,7 +55,8 @@ export function useMiniAppAuth() {
       // Открыли не из Telegram (например, при разработке) — пробуем обычную сессию браузера.
       if (!app) {
         try {
-          await api.me()
+          const { user } = await api.me()
+          if (!cancelled) setUser(user)
           return done('ready')
         } catch {
           return done('outside')
@@ -46,9 +64,10 @@ export function useMiniAppAuth() {
       }
       setAuthToken(store.get())
       try {
-        const { token } = await api.telegramWebApp(app.initData)
+        const { token, user } = await api.telegramWebApp(app.initData)
         // повторный запуск эффекта уже выдал новый токен, а этот сервер удалит — не трогаем
         if (cancelled) return
+        setUser(user)
         setAuthToken(token)
         store.set(token)
         done('ready')
@@ -70,6 +89,7 @@ export function useMiniAppAuth() {
 
   return {
     state,
+    user,
     retry: () => {
       setState('loading')
       setAttempt((a) => a + 1)

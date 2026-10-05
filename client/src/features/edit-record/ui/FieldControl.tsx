@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { toast } from 'sonner'
 import { ImagePlus, Trash2 } from 'lucide-react'
@@ -309,23 +310,32 @@ async function fileToDataUrl(file: File, max = 1600): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.85)
 }
 
+function RecordImage({ url }: { url: string }) {
+  const local = url.startsWith('/api/files/')
+  const image = useQuery({ queryKey: ['record-image', url], queryFn: () => api.image(url), enabled: local, meta: { persist: false } })
+  if (local && image.isError) return <p className="p-4 text-[13px] text-bad">Не удалось загрузить изображение</p>
+  if (local && !image.data) return <p className="p-4 text-[13px] text-fg-3">Загрузка изображения…</p>
+  return <img src={local ? image.data : url} alt="Скриншот сделки" className="max-h-72 w-full bg-surface-2 object-contain" />
+}
+
 function ImageField({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const take = async (file?: File | null) => {
     if (!file) return
     if (!file.type.startsWith('image/')) return toast.error('Нужен файл изображения')
+    const id = toast.loading('Загружаю изображение…')
     try {
-      const id = toast.loading('Загружаю изображение…')
       const { url } = await api.upload(await fileToDataUrl(file))
-      toast.dismiss(id)
       onChange(url)
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : 'Не удалось загрузить изображение. Попробуйте PNG или JPG')
+    } finally {
+      toast.dismiss(id)
     }
   }
   if (value) {
     return (
       <div className="relative overflow-hidden rounded-[9px] border border-line">
-        <img src={value} alt="Скриншот сделки" className="max-h-72 w-full bg-surface-2 object-contain" />
+        <RecordImage url={value} />
         <IconButton icon={Trash2} label="Удалить скриншот" onClick={() => onChange(null)} className="absolute top-2 right-2 bg-surface shadow" />
       </div>
     )

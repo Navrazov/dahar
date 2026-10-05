@@ -71,9 +71,19 @@ export const api = {
   statementPreview: (account_id: number, data: string) => request<StatementPreview>('/api/finance/import/preview', json('POST', { account_id, data })),
   statementImport: (account_id: number, rows: unknown[]) => request<StatementImportResult>('/api/finance/import', json('POST', { account_id, rows })),
   upload: (dataUrl: string) => request<{ url: string }>('/api/files', json('POST', { data: dataUrl })),
+  image: async (url: string) => {
+    const blob = await request<Blob>(url, undefined, 'blob')
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Не удалось загрузить изображение'))
+      reader.readAsDataURL(blob)
+    })
+  },
   restorePreview: (backup: unknown) =>
     request<{ version: number; total: number; counts: Record<string, number>; exported_at?: string }>('/api/restore/preview', json('POST', backup)),
   restore: (backup: unknown) => request('/api/restore', json('POST', { ...(backup as object), confirm: 'replace' })),
+  backup: () => request<unknown>('/api/backup'),
   checkpoints: () => request<{ id: number; created_at: string }[]>('/api/backup/checkpoints'),
   restoreCheckpoint: (id: number) => request('/api/backup/checkpoints/' + id + '/restore', json('POST', { confirm: 'replace' })),
   history: () => request<{ id: number; label: string; created_at: string; undone_at: string | null }[]>('/api/history'),

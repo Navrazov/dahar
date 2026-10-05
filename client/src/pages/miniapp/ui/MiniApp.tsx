@@ -1,7 +1,10 @@
+import { useLocation, useNavigate } from 'react-router-dom'
+import { UserContext } from '@/entities/session'
+import { EditorProvider } from '@/features/edit-record'
 import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
-import { CheckCircle2, Repeat, Wallet, type LucideIcon } from 'lucide-react'
+import { CheckCircle2, Repeat, Wallet, Grid2X2, type LucideIcon } from 'lucide-react'
 import { useSettings } from '@/shared/api'
 import { haptic, webApp } from '@/shared/lib'
 import { Button, LogoMark, Spinner } from '@/shared/ui'
@@ -11,16 +14,17 @@ import { TodayTab } from './TodayTab'
 import { HabitsTab } from './HabitsTab'
 import { MoneyTab } from './MoneyTab'
 
-type Tab = 'today' | 'habits' | 'money'
+type Tab = 'today' | 'habits' | 'money' | 'more'
 
 const TABS: { key: Tab; label: string; icon: LucideIcon }[] = [
   { key: 'today', label: 'Сегодня', icon: CheckCircle2 },
   { key: 'habits', label: 'Привычки', icon: Repeat },
   { key: 'money', label: 'Деньги', icon: Wallet },
+  { key: 'more', label: 'Ещё', icon: Grid2X2 },
 ]
 
-export function MiniApp() {
-  const { state, retry } = useMiniAppAuth()
+export function MiniApp({ sections }: { sections: ReactNode }) {
+  const { state, retry, user } = useMiniAppAuth()
   if (state === 'loading') {
     return (
       <Center>
@@ -49,31 +53,52 @@ export function MiniApp() {
       </Center>
     )
   }
-  return <Shell />
+  if (!user) return null
+  return (
+    <UserContext.Provider value={user}>
+      <EditorProvider>
+        <Shell sections={sections} />
+      </EditorProvider>
+    </UserContext.Provider>
+  )
 }
 
-function Shell() {
+function Shell({ sections }: { sections: ReactNode }) {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
   const settings = useSettings()
   const tabs = TABS.filter((t) => (t.key === 'habits' ? isEnabled(settings, 'habits') : t.key === 'money' ? isEnabled(settings, 'finance') : true))
   const [tab, setTab] = useState<Tab>('today')
-  const current = tabs.some((t) => t.key === tab) ? tab : 'today'
+  const current = pathname !== '/' ? 'more' : tabs.some((t) => t.key === tab) ? tab : 'today'
   const title = TABS.find((t) => t.key === current)!.label
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="px-5 pt-[calc(16px+var(--tg-content-safe-area-inset-top,0px))] pb-3">
-        <div className="text-[13px] text-fg-3 first-letter:uppercase">{format(new Date(), 'EEEE, d MMMM')}</div>
-        <h1 className="mt-0.5 text-[28px] leading-tight font-semibold tracking-[-0.03em]">{title}</h1>
-      </header>
+      {(pathname === '/' || pathname === '/more') && (
+        <header className="px-5 pt-[calc(16px+var(--tg-content-safe-area-inset-top,0px))] pb-3">
+          <div className="text-[13px] text-fg-3 first-letter:uppercase">{format(new Date(), 'EEEE, d MMMM')}</div>
+          <h1 className="mt-0.5 text-[28px] leading-tight font-semibold tracking-[-0.03em]">{title}</h1>
+        </header>
+      )}
 
-      <main key={current} className="animate-page-in px-4 pb-[calc(96px+var(--tg-safe-area-inset-bottom,0px))]">
+      <main
+        key={current}
+        className={clsx(
+          'animate-page-in px-4 pb-[calc(96px+var(--tg-safe-area-inset-bottom,0px))]',
+          pathname !== '/' && pathname !== '/more' && 'pt-[calc(16px+var(--tg-content-safe-area-inset-top,0px))]',
+        )}
+      >
         {current === 'today' && <TodayTab />}
         {current === 'habits' && <HabitsTab />}
         {current === 'money' && <MoneyTab />}
+        {current === 'more' && sections}
       </main>
 
       {tabs.length > 1 && (
-        <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[max(8px,var(--tg-safe-area-inset-bottom,0px))] backdrop-blur-xl">
+        <nav
+          aria-label="Разделы мини-приложения"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[max(8px,var(--tg-safe-area-inset-bottom,0px))] backdrop-blur-xl"
+        >
           <div className="mx-auto flex max-w-md">
             {tabs.map((t) => {
               const active = t.key === current
@@ -83,6 +108,7 @@ function Shell() {
                   type="button"
                   onClick={() => {
                     if (!active) haptic.select()
+                    navigate(t.key === 'more' ? '/more' : '/')
                     setTab(t.key)
                     window.scrollTo({ top: 0 })
                   }}

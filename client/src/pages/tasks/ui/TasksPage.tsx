@@ -46,6 +46,8 @@ export function TasksPage() {
   const tasks = useList('tasks')
   const projects = useList('projects')
   const qc = useQueryClient()
+  const [selectMode, setSelectMode] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkDate, setBulkDate] = useState<string | null>(null)
   const [bulkProject, setBulkProject] = useState('')
@@ -124,7 +126,20 @@ export function TasksPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex items-center gap-2 sm:hidden">
+        <Button onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen}>
+          Фильтры{project || priority || q ? ' · применены' : ''}
+        </Button>
+        <Button
+          onClick={() => {
+            setSelectMode((v) => !v)
+            setSelected(new Set())
+          }}
+        >
+          {selectMode ? 'Готово' : 'Выбрать задачи'}
+        </Button>
+      </div>
+      <div className={clsx('mb-4 flex-wrap items-center gap-2', filtersOpen ? 'flex' : 'hidden sm:flex')}>
         <SearchInput value={q} onChange={setQ} />
         <ProjectFilter value={project} onChange={setProject} withNone />
         <FilterSelect value={priority} onChange={setPriority} all="Любой приоритет" options={priorities.map((p) => ({ value: p.value, label: p.label }))} />
@@ -171,7 +186,7 @@ export function TasksPage() {
         </Card>
       )}
       {view === 'list' && !!filtered.length && (
-        <div className="mb-2 flex items-center gap-2 text-[13px] text-fg-2">
+        <div className={clsx('mb-2 items-center gap-2 text-[13px] text-fg-2', selectMode ? 'flex' : 'hidden sm:flex')}>
           <Checkbox
             label="Выбрать все показанные задачи"
             checked={filtered.every((t) => selected.has(t.id))}
@@ -204,7 +219,7 @@ export function TasksPage() {
                 <div className="divide-y divide-line">
                   {sortTasks(g.items).map((t) => (
                     <div key={t.id} className="flex items-center">
-                      <div className="pl-3">
+                      <div className={clsx('pl-3', !selectMode && 'hidden sm:block')}>
                         <Checkbox label={`Выбрать ${t.title}`} checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
                       </div>
                       <div className="min-w-0 flex-1">

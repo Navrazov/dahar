@@ -1,3 +1,5 @@
+import { HashRouter } from 'react-router-dom'
+import { MiniSections } from './router/MiniSections'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { setDefaultOptions } from 'date-fns'
@@ -31,8 +33,18 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Toaster position="top-center" theme="system" toastOptions={{ className: 'text-[14px] font-sans' }} />
-      <MiniApp />
+      <Toaster
+        expand
+        gap={8}
+        visibleToasts={3}
+        style={{ zIndex: 80 }}
+        position="top-center"
+        theme="system"
+        toastOptions={{ className: 'text-[14px] font-sans' }}
+      />
+      <HashRouter>
+        <MiniApp sections={<MiniSections />} />
+      </HashRouter>
     </QueryClientProvider>
   </StrictMode>,
 )

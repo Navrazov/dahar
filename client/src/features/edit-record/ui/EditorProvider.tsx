@@ -137,7 +137,7 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
       >
         {visible
           .filter((f) => advanced || ['title', 'name', 'due_date', 'date', 'kind', 'amount', 'start', 'end', 'all_day'].includes(f.name) || f.required)
-          .map((f, i) => (
+          .map((f) => (
             <FieldControl
               key={f.name}
               field={f}
@@ -147,7 +147,6 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
               values={values}
               error={errors[f.name]}
               onChange={(v) => set(f.name, v)}
-              autoFocus={i === 0 && !isEdit}
             />
           ))}
         <button type="button" onClick={() => setAdvanced((v) => !v)} className="text-left text-[13px] text-fg-2 sm:col-span-2" aria-expanded={advanced}>

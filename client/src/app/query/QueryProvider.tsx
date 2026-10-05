@@ -57,10 +57,23 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         persister,
         maxAge: WEEK,
         buster: 'v1',
-        dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && q.queryKey[0] !== 'search' && q.queryKey[0] !== 'two-factor' },
+        dehydrateOptions: {
+          shouldDehydrateQuery: (q) =>
+            q.state.status === 'success' && q.meta?.persist !== false && q.queryKey[0] !== 'search' && q.queryKey[0] !== 'two-factor',
+        },
       }}
     >
-      <Toaster position="bottom-right" theme="system" closeButton toastOptions={{ className: 'text-[13.5px] font-sans' }} style={{ zIndex: 80 }} />
+      <Toaster
+        expand
+        gap={8}
+        visibleToasts={3}
+        mobileOffset={{ bottom: 88, left: 16, right: 16 }}
+        position="bottom-right"
+        theme="system"
+        closeButton
+        toastOptions={{ className: 'text-[13.5px] font-sans' }}
+        style={{ zIndex: 80 }}
+      />
       <OfflineSync />
       <SyncStatus />
       {children}

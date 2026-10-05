@@ -17,7 +17,7 @@ export const setAuthToken = (token: string | null) => {
   authToken = token
 }
 
-export async function request<T>(url: string, init?: RequestInit): Promise<T> {
+export async function request<T>(url: string, init?: RequestInit, responseType?: 'blob'): Promise<T> {
   const method = (init?.method || 'GET').toUpperCase()
   const headers = new Headers(init?.headers)
   if (method !== 'GET' && !headers.has('Idempotency-Key')) headers.set('Idempotency-Key', crypto.randomUUID())
@@ -49,6 +49,7 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   }
   const action = res.headers.get('X-Dahar-Action')
   if (action && !url.startsWith('/api/settings/')) window.dispatchEvent(new CustomEvent('dahar:action', { detail: { id: Number(action) } }))
+  if (responseType === 'blob') return res.blob() as Promise<T>
   return res.headers.get('content-type')?.includes('application/json') ? res.json() : (res.text() as Promise<T>)
 }
 

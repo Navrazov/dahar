@@ -229,20 +229,20 @@ body {
   @keyframes modal-in {
     from {
       opacity: 0;
-      transform: translate(-50%, 10px) scale(0.98);
+      transform: translateY(10px) scale(0.98);
     }
     to {
-      transform: translate(-50%, 0);
+      transform: translateY(0) scale(1);
     }
   }
 
   @keyframes modal-out {
     from {
-      transform: translate(-50%, 0);
+      transform: translateY(0) scale(1);
     }
     to {
       opacity: 0;
-      transform: translate(-50%, 6px) scale(0.98);
+      transform: translateY(6px) scale(0.98);
     }
   }
 }

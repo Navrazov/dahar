@@ -1,14 +1,34 @@
-import type { HTMLAttributes, ReactNode } from 'react'
+import { useState, type HTMLAttributes, type ReactNode } from 'react'
 import clsx from 'clsx'
 
 export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+  const [actionsOpen, setActionsOpen] = useState(false)
   return (
     <header className="mb-7 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="min-w-0">
         <h1 className="text-[26px] leading-[1.15] font-semibold tracking-[-0.025em]">{title}</h1>
         {subtitle && <div className="mt-1.5 max-w-2xl text-[14px] text-fg-2">{subtitle}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActionsOpen((v) => !v)}
+            aria-expanded={actionsOpen}
+            className="inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-3 text-[13px] font-medium sm:hidden"
+          >
+            Действия
+          </button>
+          <div
+            className={clsx(
+              'flex-wrap items-center gap-2',
+              actionsOpen ? 'mt-2 flex rounded-lg border border-line bg-surface p-3 sm:mt-0 sm:border-0 sm:bg-transparent sm:p-0' : 'hidden sm:flex',
+            )}
+          >
+            {actions}
+          </div>
+        </div>
+      )}
     </header>
   )
 }

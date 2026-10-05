@@ -1,6 +1,7 @@
 export * from './date'
 export * from './number'
 export * from './options'
+export { useMediaQuery } from './useMediaQuery'
 export { swatches } from './colors'
 export { initMonitoring, reportClientError } from './monitoring'
 export { registerServiceWorker } from './pwa'

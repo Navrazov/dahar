@@ -11,10 +11,27 @@ export function Data() {
   const qc = useQueryClient()
   const projects = useList('projects')
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [preview, setPreview] = useState<{ backup: unknown; total: number; counts: Record<string, number> } | null>(null)
   const [checkpoint, setCheckpoint] = useState<number | null>(null)
   const saved = useQuery({ queryKey: ['checkpoints'], queryFn: api.checkpoints })
   const history = useQuery({ queryKey: ['history'], queryFn: api.history })
+  const download = async () => {
+    setExporting(true)
+    try {
+      const backup = await api.backup()
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `dahar-backup-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setExporting(false)
+    }
+  }
   const pick = async (file?: File) => {
     if (!file) return
     try {
@@ -67,9 +84,9 @@ export function Data() {
       <CardHeader title="Данные и история" />
       <div className="space-y-4 px-4 pb-4">
         <div className="flex flex-wrap gap-2">
-          <a href="/api/backup" download>
-            <Button icon={Download}>Скачать резервную копию</Button>
-          </a>
+          <Button icon={Download} loading={exporting} onClick={download}>
+            Скачать резервную копию
+          </Button>
           <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[7px] border border-line px-3 text-[13.5px]">
             <Upload size={15} />
             Проверить копию
