@@ -1,0 +1,24 @@
+{
+  "name": "dahar",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client",
+    "admin"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web,admin -c blue,magenta,yellow \"npm run dev -w server\" \"npm run dev -w client\" \"npm run dev -w admin\"",
+    "build": "npm run build -w client && npm run build -w admin",
+    "start": "npm run start -w server",
+    "user": "npm run user -w server --",
+    "admin": "npm run admin -w server --",
+    "test": "npm test -w server",
+    "lint:fsd": "npm run lint:fsd -w client && npm run lint:fsd -w admin"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
