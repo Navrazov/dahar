@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { Menu, Plus, X } from 'lucide-react'
+import { CloudOff, Menu, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { useConnection } from '@/shared/api'
 import { ErrorBoundary, Logo, PageReady, TopProgress } from '@/shared/ui'
 import { useDetectTimezone } from '../model/useDetectTimezone'
 import { useEditor } from '@/features/edit-record'
+import { CommandPalette, useCommandPaletteHotkey } from './CommandPalette'
 import { Sidebar } from './Sidebar'
 
 function useNewTaskHotkey() {
@@ -22,10 +24,32 @@ function useNewTaskHotkey() {
   }, [edit])
 }
 
+/** Без сети приложение работает на кэше, а изменения копятся в очереди — об этом нужно сказать. */
+function ConnectionBanner() {
+  const { online, pending } = useConnection()
+  if (online && !pending) return null
+  return (
+    <div
+      role="status"
+      className="sticky top-0 z-30 flex items-center justify-center gap-2 border-b border-line bg-warn/15 px-4 py-1.5 text-[12.5px] text-fg lg:pl-[248px]"
+    >
+      {online ? <RefreshCw size={13} className="animate-spin" /> : <CloudOff size={13} />}
+      {online
+        ? `Отправляем изменения: ${pending}`
+        : pending
+          ? `Нет сети. Изменений ждут отправки: ${pending} — уйдут, когда появится связь`
+          : 'Нет сети. Показаны сохранённые данные, изменения сохранятся и отправятся позже'}
+    </div>
+  )
+}
+
 export function AppShell() {
   useDetectTimezone()
   useNewTaskHotkey()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
+  useCommandPaletteHotkey(openPalette)
   const edit = useEditor()
   const { pathname } = useLocation()
 
@@ -37,16 +61,35 @@ export function AppShell() {
   return (
     <div className="min-h-screen">
       <TopProgress />
+      <ConnectionBanner />
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[248px] lg:block">
-        <Sidebar />
+        <Sidebar onSearch={openPalette} />
       </aside>
 
       <header className="sticky top-0 z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] items-center gap-2 border-b border-line bg-bg/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
-        <button type="button" aria-label="Меню" onClick={() => setMobileOpen(true)} className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-[7px] transition-[background-color,transform] hover:bg-hover active:scale-90">
+        <button
+          type="button"
+          aria-label="Меню"
+          onClick={() => setMobileOpen(true)}
+          className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-[7px] transition-[background-color,transform] hover:bg-hover active:scale-90"
+        >
           <Menu size={19} />
         </button>
         <Logo />
-        <button type="button" aria-label="Новая задача" onClick={() => edit('tasks')} className="ml-auto flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-on-ink transition-transform active:scale-90">
+        <button
+          type="button"
+          aria-label="Поиск"
+          onClick={openPalette}
+          className="ml-auto flex h-9 w-9 items-center justify-center rounded-[7px] transition-[background-color,transform] hover:bg-hover active:scale-90"
+        >
+          <Search size={18} />
+        </button>
+        <button
+          type="button"
+          aria-label="Новая задача"
+          onClick={() => edit('tasks')}
+          className="flex h-9 w-9 items-center justify-center rounded-[7px] bg-ink text-on-ink transition-transform active:scale-90"
+        >
           <Plus size={18} />
         </button>
       </header>
@@ -63,10 +106,18 @@ export function AppShell() {
             >
               <X size={17} />
             </button>
-            <Sidebar onNavigate={() => setMobileOpen(false)} />
+            <Sidebar
+              onNavigate={() => setMobileOpen(false)}
+              onSearch={() => {
+                setMobileOpen(false)
+                openPalette()
+              }}
+            />
           </aside>
         </div>
       )}
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 
       <main className="lg:pl-[248px]">
         <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">

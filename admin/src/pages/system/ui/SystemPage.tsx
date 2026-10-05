@@ -20,7 +20,12 @@ export function SystemPage() {
           { label: 'Работает', value: duration(s.uptime) },
           { label: 'Память процесса', value: bytes(s.memory.rss), sub: `куча ${bytes(s.memory.heap)}` },
           { label: 'База данных', value: bytes(s.database.size), sub: `PostgreSQL ${s.database.version.split(' ')[0]}` },
-          { label: 'Миграции', value: s.migrations.applied.length, sub: s.migrations.pending.length ? `ожидают: ${s.migrations.pending.length}` : 'все применены', tone: s.migrations.pending.length ? 'bad' : null },
+          {
+            label: 'Миграции',
+            value: s.migrations.applied.length,
+            sub: s.migrations.pending.length ? `ожидают: ${s.migrations.pending.length}` : 'все применены',
+            tone: s.migrations.pending.length ? 'bad' : null,
+          },
         ]}
       />
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
@@ -51,7 +56,10 @@ export function SystemPage() {
             <KeyValue
               items={[
                 ['Telegram-бот', s.telegram.enabled ? <Badge tone="good">@{s.telegram.username ?? 'запускается'}</Badge> : on(false)],
-                ['Фоновые задачи', <Badge tone={schedulerOk ? 'good' : 'bad'}>{schedulerOk ? `последний запуск ${ago(s.scheduler.lastTickAt)}` : 'не отвечают'}</Badge>],
+                [
+                  'Фоновые задачи',
+                  <Badge tone={schedulerOk ? 'good' : 'bad'}>{schedulerOk ? `последний запуск ${ago(s.scheduler.lastTickAt)}` : 'не отвечают'}</Badge>,
+                ],
                 ['Sentry', on(s.sentry)],
                 ['Хранилище файлов', s.storage],
                 ['Часовой пояс сервера', s.timezone],
@@ -61,7 +69,12 @@ export function SystemPage() {
           </Card>
           <Card>
             <CardHeader title="Миграции" />
-            <KeyValue items={s.migrations.applied.map((m) => [<span className="font-mono text-[12px]">{m.id}</span>, <span className="text-fg-2">{dateTime(m.applied_at)}</span>])} />
+            <KeyValue
+              items={s.migrations.applied.map((m) => [
+                <span className="font-mono text-[12px]">{m.id}</span>,
+                <span className="text-fg-2">{dateTime(m.applied_at)}</span>,
+              ])}
+            />
           </Card>
           <ChangePassword />
         </div>

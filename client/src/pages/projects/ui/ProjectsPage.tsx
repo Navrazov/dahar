@@ -14,7 +14,9 @@ export function ProjectsPage() {
   const shown = projects.filter((p) =>
     filter === 'archive' ? p.status === 'archived' || p.status === 'done' : filter === 'current' ? p.status !== 'archived' && p.status !== 'done' : true,
   )
-  const areas = [...new Set(shown.map((p) => p.area || 'Без категории'))].sort((a, b) => (a === 'Без категории' ? 1 : b === 'Без категории' ? -1 : a.localeCompare(b)))
+  const areas = [...new Set(shown.map((p) => p.area || 'Без категории'))].sort((a, b) =>
+    a === 'Без категории' ? 1 : b === 'Без категории' ? -1 : a.localeCompare(b),
+  )
 
   return (
     <>

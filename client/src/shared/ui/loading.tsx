@@ -68,7 +68,13 @@ export function TopProgress() {
     return () => clearTimeout(t)
   }, [busy])
   return (
-    <div className={clsx('pointer-events-none fixed inset-x-0 top-0 z-[90] h-[2px] overflow-hidden transition-opacity duration-300', shown ? 'opacity-100' : 'opacity-0')} aria-hidden>
+    <div
+      className={clsx(
+        'pointer-events-none fixed inset-x-0 top-0 z-[90] h-[2px] overflow-hidden transition-opacity duration-300',
+        shown ? 'opacity-100' : 'opacity-0',
+      )}
+      aria-hidden
+    >
       <div className="h-full w-full origin-left bg-accent animate-[progress_1.1s_ease-in-out_infinite]" />
     </div>
   )
@@ -104,7 +110,12 @@ export function PageReady({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (ready) return
     let timer: ReturnType<typeof setTimeout> | undefined
-    const loading = () => pending.current > 0 || qc.getQueryCache().findAll().some((q) => q.state.data === undefined && q.state.fetchStatus === 'fetching')
+    const loading = () =>
+      pending.current > 0 ||
+      qc
+        .getQueryCache()
+        .findAll()
+        .some((q) => q.state.data === undefined && q.state.fetchStatus === 'fetching')
     // проверяем на следующем тике: к этому моменту эффекты страницы уже запустили её запросы
     const check = () => {
       clearTimeout(timer)

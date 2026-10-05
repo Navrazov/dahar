@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, useList, useSettings, type CollectionName } from '@/shared/api'
 import { money } from '@/shared/lib'
@@ -63,12 +63,12 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
     })
   }
 
-  const visible = cfg.fields.filter(
-    (f) => (f.when?.(values) ?? true) && !(f.ref === 'partners' && !isEnabled(settings, 'partners') && values[f.name] == null),
-  )
+  const visible = cfg.fields.filter((f) => (f.when?.(values) ?? true) && !(f.ref === 'partners' && !isEnabled(settings, 'partners') && values[f.name] == null))
 
   const save = async () => {
-    const missing = Object.fromEntries(visible.filter((f) => f.required && (values[f.name] == null || values[f.name] === '')).map((f) => [f.name, 'Обязательное поле']))
+    const missing = Object.fromEntries(
+      visible.filter((f) => f.required && (values[f.name] == null || values[f.name] === '')).map((f) => [f.name, 'Обязательное поле']),
+    )
     if (state.table === 'events' && values.end && values.start && values.end < values.start) missing.end = 'Окончание раньше начала'
     if (Object.keys(missing).length) return setErrors(missing)
     setBusy(true)
@@ -79,9 +79,10 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
         data.end = String(data.end || data.start).slice(0, 10) + 'T23:59'
       }
       const row = id ? await api.update(state.table, id, data) : await api.create(state.table, data)
-      await qc.invalidateQueries()
+      await refreshLists(qc)
       toast.success(isEdit ? 'Сохранено' : `${cfg.title}: создано`)
-      if (state.table === 'transactions' && data.kind === 'expense' && data.category) warnBudget(String(data.category), String(data.date || ''), settings.currency || '₽')
+      if (state.table === 'transactions' && data.kind === 'expense' && data.category)
+        warnBudget(String(data.category), String(data.date || ''), settings.currency || '₽')
       state.onSaved?.(row)
       onClose()
     } catch (e) {
@@ -95,7 +96,7 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
     setRemoving(true)
     try {
       await api.remove(state.table, values.id)
-      await qc.invalidateQueries()
+      await refreshLists(qc)
       toast.success('Удалено')
       onClose()
     } catch (e) {
@@ -152,6 +153,12 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
   )
 }
 
+/** Онлайн ждём свежие списки, чтобы окно закрылось с актуальными данными; офлайн — кэш уже поправлен очередью. */
+function refreshLists(qc: QueryClient) {
+  const refetch = qc.invalidateQueries()
+  return navigator.onLine ? refetch : undefined
+}
+
 async function warnBudget(category: string, date: string, cur: string) {
   const s = await api.financeSummary(date.slice(0, 7)).catch(() => null)
   const b = s?.budgets.find((x) => x.category.toLowerCase() === category.toLowerCase())
@@ -159,4 +166,3 @@ async function warnBudget(category: string, date: string, cur: string) {
   if (b.spent > b.amount) toast.warning(`Бюджет «${b.category}» превышен: ${money(b.spent, cur)} из ${money(b.amount, cur)}`)
   else if (b.spent >= b.amount * 0.8) toast.warning(`Бюджет «${b.category}»: потрачено ${Math.round((b.spent / b.amount) * 100)}%`)
 }
-

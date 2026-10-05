@@ -26,7 +26,11 @@ function Heatmap({ habit, logs }: { habit: Habit; logs: Map<string, string> }) {
             key={k}
             title={`${format(d, 'd MMM')}${s === 'slip' ? ' — срыв' : good ? ' — выполнено' : ''}`}
             className="h-[11px] w-[11px] rounded-[3px]"
-            style={{ background: s === 'slip' ? 'var(--text)' : good ? color : inRange ? 'var(--surface-2)' : 'transparent', outline: inRange && !good && s !== 'slip' ? '1px solid var(--border)' : undefined, outlineOffset: -1 }}
+            style={{
+              background: s === 'slip' ? 'var(--text)' : good ? color : inRange ? 'var(--surface-2)' : 'transparent',
+              outline: inRange && !good && s !== 'slip' ? '1px solid var(--border)' : undefined,
+              outlineOffset: -1,
+            }}
           />
         )
       })}
@@ -59,7 +63,14 @@ export function HabitsPage() {
         subtitle="Отмечайте выполнение кликом по дню. Для привычек «избавиться» день считается чистым, пока не отмечен срыв"
         actions={
           <>
-            <Segmented value={show} onChange={setShow} options={[{ value: 'active', label: 'Активные' }, { value: 'archived', label: 'Архив' }]} />
+            <Segmented
+              value={show}
+              onChange={setShow}
+              options={[
+                { value: 'active', label: 'Активные' },
+                { value: 'archived', label: 'Архив' },
+              ]}
+            />
             <Button variant="primary" icon={Plus} onClick={() => edit('habits')}>
               Привычка
             </Button>
@@ -76,7 +87,17 @@ export function HabitsPage() {
 
       {!shown.length ? (
         <Card>
-          <Empty title={show === 'archived' ? 'Архив пуст' : 'Привычек пока нет'} hint="Например: «Читать 30 минут», «Тренировка 3 раза в неделю» или «Не пользоваться телефоном после 23:00»" action={show === 'active' && <Button variant="primary" icon={Plus} onClick={() => edit('habits')}>Добавить привычку</Button>} />
+          <Empty
+            title={show === 'archived' ? 'Архив пуст' : 'Привычек пока нет'}
+            hint="Например: «Читать 30 минут», «Тренировка 3 раза в неделю» или «Не пользоваться телефоном после 23:00»"
+            action={
+              show === 'active' && (
+                <Button variant="primary" icon={Plus} onClick={() => edit('habits')}>
+                  Добавить привычку
+                </Button>
+              )
+            }
+          />
         </Card>
       ) : (
         <>
@@ -154,7 +175,10 @@ export function HabitsPage() {
                     {[
                       { l: 'Серия', v: `${s.streak} ${s.streakUnit}` },
                       { l: 'Рекорд', v: `${s.best} ${s.streakUnit}` },
-                      { l: h.frequency === 'weekly' && h.kind !== 'quit' ? 'Неделя' : '7 дней', v: h.frequency === 'weekly' && h.kind !== 'quit' ? `${s.weekCount}/${h.per_week || 1}` : pct(s.rate7) },
+                      {
+                        l: h.frequency === 'weekly' && h.kind !== 'quit' ? 'Неделя' : '7 дней',
+                        v: h.frequency === 'weekly' && h.kind !== 'quit' ? `${s.weekCount}/${h.per_week || 1}` : pct(s.rate7),
+                      },
                       { l: 'Всего', v: pct(s.rate) },
                     ].map((x) => (
                       <div key={x.l} className="rounded-[8px] bg-surface-2 px-2 py-2">

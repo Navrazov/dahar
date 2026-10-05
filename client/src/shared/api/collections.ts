@@ -39,7 +39,8 @@ export function useSave<K extends CollectionName>(t: K) {
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<Collections[K]> & { id?: number }) =>
       id ? api.update(t, id, data as Partial<Collections[K]>) : api.create(t, data as Partial<Collections[K]>),
-    onMutate: ({ id, ...data }) => (id ? patchLists<Collections[K]>(qc, collectionKey(t), (rows) => rows.map((r) => (r.id === id ? { ...r, ...data } : r))) : undefined),
+    onMutate: ({ id, ...data }) =>
+      id ? patchLists<Collections[K]>(qc, collectionKey(t), (rows) => rows.map((r) => (r.id === id ? { ...r, ...data } : r))) : undefined,
     onError: (_e, _v, rollback) => rollback?.(),
     onSettled: invalidate,
   })

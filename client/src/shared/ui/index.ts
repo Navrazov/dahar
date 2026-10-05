@@ -6,9 +6,12 @@ export { Table } from './table'
 export { ErrorBoundary } from './error-boundary'
 export { Logo, LogoMark } from './logo'
 export { DropdownMenu, Modal, PopoverPanel, type MenuItem } from './overlay'
-export {
-  controlCls, DatePicker, DateTimePicker, FieldLabel, Input, NumberInput, PhoneInput, SearchInput, Select, Switch, TelegramInput, Textarea, TimePicker,
-  type SelectOption,
-} from './fields'
+export { controlCls, FieldLabel, Switch } from './fields'
+export { Input, SearchInput, Textarea } from './inputs'
+export { Select, type SelectOption } from './select'
+export { DatePicker, DateTimePicker, TimePicker } from './date-time'
+export { NumberInput } from './number-input'
+export { PhoneInput, TelegramInput } from './contact-inputs'
 export { FilterSelect, StatusPicker } from './status-picker'
 export { PageReady, PageSkeleton, Skeleton, SkeletonCard, Spinner, SuspenseSkeleton, TopProgress } from './loading'
+export { QrCode } from './qr-code'

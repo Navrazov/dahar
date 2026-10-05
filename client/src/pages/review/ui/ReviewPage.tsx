@@ -13,6 +13,7 @@ import { isEnabled } from '@/entities/module'
 import { netPnl } from '@/entities/trade'
 import { useEditor } from '@/features/edit-record'
 import { GoalList } from '@/widgets/goal-list'
+import { WeekInsight } from './WeekInsight'
 import { TaskList } from '@/widgets/task-list'
 
 const weekOf = (d: Date) => ymd(startOfISOWeek(d))
@@ -51,7 +52,9 @@ export function ReviewPage() {
   const days = start > today ? [] : eachDayOfInterval({ start: parseISO(start), end: parseISO(lastDay) })
   const habitRows = habits.map((h) => {
     const mine = new Map(logs.filter((l) => l.habit_id === h.id).map((l) => [l.date, l.status]))
-    const due = days.filter((d) => ymd(d) >= (h.start_date || h.created_at.slice(0, 10)) && (h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, d)))
+    const due = days.filter(
+      (d) => ymd(d) >= (h.start_date || h.created_at.slice(0, 10)) && (h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, d)),
+    )
     if (h.kind !== 'quit' && h.frequency === 'weekly') {
       const n = due.filter((d) => mine.get(ymd(d)) === 'done').length
       return { h, ok: n, total: Math.max(1, h.per_week || 1), rate: Math.min(1, n / Math.max(1, h.per_week || 1)) }
@@ -88,11 +91,27 @@ export function ReviewPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
-        <Stat label="Задач выполнено" value={done.length} sub={overdue.length ? `${overdue.length} просрочено` : 'просроченных нет'} tone={overdue.length ? null : 'good'} />
+        <Stat
+          label="Задач выполнено"
+          value={done.length}
+          sub={overdue.length ? `${overdue.length} просрочено` : 'просроченных нет'}
+          tone={overdue.length ? null : 'good'}
+        />
         {isEnabled(settings, 'habits') && <Stat label="Привычки" value={pct(habitAvg)} sub="среднее выполнение" />}
-        {isEnabled(settings, 'finance') && <Stat label="Финансы" value={signedMoney(income - expense, cur)} tone={income - expense >= 0 ? 'good' : 'bad'} sub={`+${money(income, cur)} / −${money(expense, cur)}`} />}
-        {isEnabled(settings, 'business') && <Stat label="Бизнес" value={money(bizNet, cur)} tone={bizNet >= 0 ? 'good' : 'bad'} sub={`${weekSales.length} продаж`} />}
-        {isEnabled(settings, 'trading') && <Stat label="Трейдинг" value={signedMoney(tradePnl, tcur, 2)} tone={tradePnl >= 0 ? 'good' : 'bad'} sub={`${weekTrades.length} сделок`} />}
+        {isEnabled(settings, 'finance') && (
+          <Stat
+            label="Финансы"
+            value={signedMoney(income - expense, cur)}
+            tone={income - expense >= 0 ? 'good' : 'bad'}
+            sub={`+${money(income, cur)} / −${money(expense, cur)}`}
+          />
+        )}
+        {isEnabled(settings, 'business') && (
+          <Stat label="Бизнес" value={money(bizNet, cur)} tone={bizNet >= 0 ? 'good' : 'bad'} sub={`${weekSales.length} продаж`} />
+        )}
+        {isEnabled(settings, 'trading') && (
+          <Stat label="Трейдинг" value={signedMoney(tradePnl, tcur, 2)} tone={tradePnl >= 0 ? 'good' : 'bad'} sub={`${weekTrades.length} сделок`} />
+        )}
         {isEnabled(settings, 'partners') && <Stat label="Партнёры" value={touches} sub={`контактов · новых ${newPartners}`} />}
       </div>
 
@@ -109,13 +128,22 @@ export function ReviewPage() {
             </Card>
           )}
           <Card>
-            <CardHeader title="План на следующую неделю" sub={`${format(parseISO(nextStart), 'd MMM')} — ${format(parseISO(nextEnd), 'd MMM')}`} action={<Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('tasks', { due_date: nextStart })}>Задача</Button>} />
+            <CardHeader
+              title="План на следующую неделю"
+              sub={`${format(parseISO(nextStart), 'd MMM')} — ${format(parseISO(nextEnd), 'd MMM')}`}
+              action={
+                <Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('tasks', { due_date: nextStart })}>
+                  Задача
+                </Button>
+              }
+            />
             <QuickPlan date={nextStart} />
             <TaskList tasks={nextWeek} empty="На следующую неделю ничего не запланировано" />
           </Card>
         </div>
 
         <div className="space-y-4">
+          <WeekInsight week={week} />
           <Reflection week={week} />
           {isEnabled(settings, 'habits') && habitRows.length > 0 && (
             <Card>
@@ -156,7 +184,13 @@ function QuickPlan({ date }: { date: string }) {
   return (
     <div className="flex items-center gap-2 border-y border-line px-4 py-1.5">
       <Plus size={15} className="text-fg-3" />
-      <Input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Добавить задачу на понедельник — Enter" className="border-0 px-0 hover:border-0 focus:border-0 focus:ring-0" />
+      <Input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && add()}
+        placeholder="Добавить задачу на понедельник — Enter"
+        className="border-0 px-0 hover:border-0 focus:border-0 focus:ring-0"
+      />
     </div>
   )
 }
@@ -179,18 +213,29 @@ function Reflection({ week }: { week: string }) {
   const dirty = prompts.some((p) => (draft[p.key] ?? '') !== (existing?.[p.key] ?? '')) || draft.rating !== existing?.rating
 
   const submit = async () => {
-    await save.mutateAsync({ ...(existing ? { id: existing.id } : {}), week_start: week, wins: draft.wins, problems: draft.problems, lessons: draft.lessons, focus: draft.focus, rating: draft.rating })
+    await save.mutateAsync({
+      ...(existing ? { id: existing.id } : {}),
+      week_start: week,
+      wins: draft.wins,
+      problems: draft.problems,
+      lessons: draft.lessons,
+      focus: draft.focus,
+      rating: draft.rating,
+    })
     toast.success('Обзор недели сохранён')
   }
 
-  const history = reviews.filter((r) => r.week_start !== week).sort((a, b) => b.week_start.localeCompare(a.week_start)).slice(0, 4)
+  const history = reviews
+    .filter((r) => r.week_start !== week)
+    .sort((a, b) => b.week_start.localeCompare(a.week_start))
+    .slice(0, 4)
 
   return (
     <Card>
       <CardHeader title="Рефлексия" />
       <div className="space-y-3.5 px-4 pb-4">
-        <FieldLabel label="Оценка недели">
-          <div className="flex gap-1.5" role="radiogroup" aria-label="Оценка недели">
+        <FieldLabel label="Оценка недели" group>
+          <div className="flex gap-1.5" role="radiogroup">
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}

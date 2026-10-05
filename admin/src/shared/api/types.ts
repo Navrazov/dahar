@@ -4,6 +4,9 @@ export interface Admin {
   last_login_at?: string | null
 }
 
+/** После пароля админка всегда спрашивает второй фактор; при первом входе — привязывает приложение. */
+export type AdminLoginStep = { twoFactor: true; ticket: string } | { setupRequired: true; ticket: string; secret: string; otpauth: string }
+
 export interface DailyPoint {
   day: string
   value: number

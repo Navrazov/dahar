@@ -14,7 +14,8 @@ export type RefTable = 'projects' | 'partners' | 'products' | 'customers' | 'acc
 export type Field = {
   name: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'datetime' | 'select' | 'ref' | 'color' | 'checkbox' | 'image' | 'days' | 'phone' | 'telegram' | 'email'
+  type:
+    'text' | 'textarea' | 'number' | 'date' | 'time' | 'datetime' | 'select' | 'ref' | 'color' | 'checkbox' | 'image' | 'days' | 'phone' | 'telegram' | 'email'
   options?: Option[]
   ref?: RefTable
   suggest?: boolean
@@ -64,7 +65,13 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
       { name: 'description', label: 'Описание', type: 'textarea', full: true },
       project,
       { name: 'status', label: 'Статус', type: 'select', options: goalStatuses },
-      { name: 'metric', label: 'Как считать прогресс', type: 'select', options: [{ value: '', label: 'Вручную' }, ...goalMetrics.map((m) => ({ value: m.value, label: m.label }))], full: true },
+      {
+        name: 'metric',
+        label: 'Как считать прогресс',
+        type: 'select',
+        options: [{ value: '', label: 'Вручную' }, ...goalMetrics.map((m) => ({ value: m.value, label: m.label }))],
+        full: true,
+      },
       { name: 'current_value', label: 'Текущее значение', type: 'number', when: (v) => !v.metric },
       { name: 'target_value', label: 'Целевое значение', type: 'number' },
       { name: 'unit', label: 'Единица', type: 'text', suggest: true, placeholder: 'партнёров, ₽, книг…' },
@@ -165,7 +172,14 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
     newLabel: 'Новый бюджет',
     title: 'Бюджет',
     fields: [
-      { name: 'category', label: 'Категория расходов', type: 'text', required: true, placeholder: 'Кафе, продукты…', suggestFrom: { table: 'transactions', column: 'category' } },
+      {
+        name: 'category',
+        label: 'Категория расходов',
+        type: 'text',
+        required: true,
+        placeholder: 'Кафе, продукты…',
+        suggestFrom: { table: 'transactions', column: 'category' },
+      },
       { name: 'amount', label: 'Лимит в месяц', type: 'number', required: true, suffix: 'cur', positive: true },
     ],
   },

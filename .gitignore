@@ -5,3 +5,7 @@ data
 .DS_Store
 .playwright-mcp
 samples
+*.tsbuildinfo
+test-results
+playwright-report
+coverage

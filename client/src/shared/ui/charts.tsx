@@ -8,7 +8,19 @@ const axis = { stroke: 'var(--axis)', fontSize: 11, tickLine: false, axisLine: f
 
 type Fmt = (v: number) => string
 
-function ChartTooltip({ active, payload, label, fmt, labelFmt }: { active?: boolean; payload?: any[]; label?: any; fmt: Fmt; labelFmt?: (l: any) => ReactNode }) {
+function ChartTooltip({
+  active,
+  payload,
+  label,
+  fmt,
+  labelFmt,
+}: {
+  active?: boolean
+  payload?: any[]
+  label?: any
+  fmt: Fmt
+  labelFmt?: (l: any) => ReactNode
+}) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-[8px] border border-line bg-surface px-3 py-2 text-[12.5px] shadow-lg">
@@ -37,7 +49,25 @@ export function Legend({ items }: { items: { label: string; color: string }[] })
   )
 }
 
-export function TrendChart({ data, x, y, name, fmt, height = 220, color = 'var(--s1)', baseline }: { data: any[]; x: string; y: string; name: string; fmt: Fmt; height?: number; color?: string; baseline?: number }) {
+export function TrendChart({
+  data,
+  x,
+  y,
+  name,
+  fmt,
+  height = 220,
+  color = 'var(--s1)',
+  baseline,
+}: {
+  data: any[]
+  x: string
+  y: string
+  name: string
+  fmt: Fmt
+  height?: number
+  color?: string
+  baseline?: number
+}) {
   const id = `g-${y}-${name.length}`
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -53,13 +83,38 @@ export function TrendChart({ data, x, y, name, fmt, height = 220, color = 'var(-
         <YAxis {...axis} width={64} tickFormatter={compact} domain={['auto', 'auto']} />
         {baseline != null && <ReferenceLine y={baseline} stroke="var(--axis)" strokeDasharray="3 3" />}
         <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--axis)', strokeWidth: 1 }} />
-        <Area type="monotone" dataKey={y} name={name} stroke={color} strokeWidth={2} fill={`url(#${id})`} activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }} dot={false} />
+        <Area
+          type="monotone"
+          dataKey={y}
+          name={name}
+          stroke={color}
+          strokeWidth={2}
+          fill={`url(#${id})`}
+          activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }}
+          dot={false}
+        />
       </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-export function BarsChart({ data, x, bars, fmt, height = 240, stacked, signed }: { data: any[]; x: string; bars: { key: string; name: string; color: string }[]; fmt: Fmt; height?: number; stacked?: boolean; signed?: boolean }) {
+export function BarsChart({
+  data,
+  x,
+  bars,
+  fmt,
+  height = 240,
+  stacked,
+  signed,
+}: {
+  data: any[]
+  x: string
+  bars: { key: string; name: string; color: string }[]
+  fmt: Fmt
+  height?: number
+  stacked?: boolean
+  signed?: boolean
+}) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="24%">
@@ -89,7 +144,21 @@ export function BarsChart({ data, x, bars, fmt, height = 240, stacked, signed }:
   )
 }
 
-export function StackedArea({ data, x, areas, fmt, height = 300, xFmt }: { data: any[]; x: string; areas: { key: string; name: string; color: string }[]; fmt: Fmt; height?: number; xFmt?: (v: any) => string }) {
+export function StackedArea({
+  data,
+  x,
+  areas,
+  fmt,
+  height = 300,
+  xFmt,
+}: {
+  data: any[]
+  x: string
+  areas: { key: string; name: string; color: string }[]
+  fmt: Fmt
+  height?: number
+  xFmt?: (v: any) => string
+}) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -98,14 +167,35 @@ export function StackedArea({ data, x, areas, fmt, height = 300, xFmt }: { data:
         <YAxis {...axis} width={64} tickFormatter={compact} />
         <Tooltip content={<ChartTooltip fmt={fmt} labelFmt={xFmt} />} cursor={{ stroke: 'var(--axis)', strokeWidth: 1 }} />
         {areas.map((a) => (
-          <Area key={a.key} type="monotone" dataKey={a.key} name={a.name} stackId="1" stroke={a.color} strokeWidth={2} fill={a.color} fillOpacity={0.22} activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }} />
+          <Area
+            key={a.key}
+            type="monotone"
+            dataKey={a.key}
+            name={a.name}
+            stackId="1"
+            stroke={a.color}
+            strokeWidth={2}
+            fill={a.color}
+            fillOpacity={0.22}
+            activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }}
+          />
         ))}
       </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-export function RankBars({ items, fmt, color = 'var(--s1)', max = 8 }: { items: { label: string; value: number; color?: string }[]; fmt: Fmt; color?: string; max?: number }) {
+export function RankBars({
+  items,
+  fmt,
+  color = 'var(--s1)',
+  max = 8,
+}: {
+  items: { label: string; value: number; color?: string }[]
+  fmt: Fmt
+  color?: string
+  max?: number
+}) {
   const top = items.slice(0, max)
   const rest = items.slice(max)
   const rows = rest.length ? [...top, { label: 'Другое', value: rest.reduce((a, b) => a + b.value, 0), color: 'var(--text-3)' }] : top

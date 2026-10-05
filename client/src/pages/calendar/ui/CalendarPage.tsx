@@ -48,7 +48,17 @@ function useItems(projectFilter: string) {
         if (t.due_date !== day || !keep(t.project_id)) continue
         const color = (t.project_id && projects.get(t.project_id)?.color) || 'var(--text-3)'
         const startMin = t.due_time ? minutes('0000-00-00T' + t.due_time) : 0
-        out.push({ key: `t${t.id}`, kind: 'task', title: t.title, color, allDay: !t.due_time, startMin, endMin: startMin + 30, done: t.status === 'done', src: t })
+        out.push({
+          key: `t${t.id}`,
+          kind: 'task',
+          title: t.title,
+          color,
+          allDay: !t.due_time,
+          startMin,
+          endMin: startMin + 30,
+          done: t.status === 'done',
+          src: t,
+        })
       }
       return out.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startMin - b.startMin)
     }
@@ -85,11 +95,20 @@ function Chip({ item, onClick }: { item: Item; onClick: () => void }) {
         e.stopPropagation()
         onClick()
       }}
-      className={clsx('flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[12px] leading-4 hover:brightness-95', item.done && 'line-through opacity-60')}
+      className={clsx(
+        'flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[12px] leading-4 hover:brightness-95',
+        item.done && 'line-through opacity-60',
+      )}
       style={{ background: `color-mix(in srgb, ${item.color} 16%, var(--surface))`, color: 'var(--text)' }}
     >
-      {item.kind === 'task' ? <CheckSquare size={10} className="shrink-0" style={{ color: item.color }} /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: item.color }} />}
-      {!item.allDay && <span className="shrink-0 text-fg-3 tabular">{`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}</span>}
+      {item.kind === 'task' ? (
+        <CheckSquare size={10} className="shrink-0" style={{ color: item.color }} />
+      ) : (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: item.color }} />
+      )}
+      {!item.allDay && (
+        <span className="shrink-0 text-fg-3 tabular">{`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}</span>
+      )}
       <span className="truncate">{item.title}</span>
     </button>
   )
@@ -131,7 +150,15 @@ export function CalendarPage() {
         actions={
           <>
             <ProjectFilter value={project} onChange={setProject} />
-            <Segmented value={view} onChange={setView} options={[{ value: 'day', label: 'День' }, { value: 'week', label: 'Неделя' }, { value: 'month', label: 'Месяц' }]} />
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'day', label: 'День' },
+                { value: 'week', label: 'Неделя' },
+                { value: 'month', label: 'Месяц' },
+              ]}
+            />
             <Button variant="primary" icon={Plus} onClick={() => newEvent(ymd(anchor))}>
               Событие
             </Button>
@@ -149,20 +176,52 @@ export function CalendarPage() {
       </div>
 
       {view === 'month' ? (
-        <MonthGrid anchor={anchor} itemsFor={itemsFor} onOpen={open} onNew={newEvent} onDay={(d) => { setAnchor(d); setView('day') }} />
+        <MonthGrid
+          anchor={anchor}
+          itemsFor={itemsFor}
+          onOpen={open}
+          onNew={newEvent}
+          onDay={(d) => {
+            setAnchor(d)
+            setView('day')
+          }}
+        />
       ) : (
         <div className="overflow-hidden rounded-[10px] border border-line bg-surface">
           <div className="grid border-b border-line" style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` }}>
             <div />
             {days.map((d) => (
-              <button key={ymd(d)} type="button" onClick={() => { setAnchor(d); setView('day') }} className="border-l border-line px-2 py-2 text-left hover:bg-hover">
+              <button
+                key={ymd(d)}
+                type="button"
+                onClick={() => {
+                  setAnchor(d)
+                  setView('day')
+                }}
+                className="border-l border-line px-2 py-2 text-left hover:bg-hover"
+              >
                 <div className="text-[12px] text-fg-3 uppercase">{format(d, 'EEE')}</div>
-                <div className={clsx('mt-0.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full text-[13.5px] font-semibold', isToday(d) && 'bg-accent px-1.5 text-white')}>{format(d, 'd')}</div>
+                <div
+                  className={clsx(
+                    'mt-0.5 inline-flex h-6 min-w-6 items-center justify-center rounded-full text-[13.5px] font-semibold',
+                    isToday(d) && 'bg-accent px-1.5 text-white',
+                  )}
+                >
+                  {format(d, 'd')}
+                </div>
               </button>
             ))}
-            <div className="flex items-center justify-center border-t border-line text-center text-[10px] leading-tight text-fg-3">весь<br />день</div>
+            <div className="flex items-center justify-center border-t border-line text-center text-[10px] leading-tight text-fg-3">
+              весь
+              <br />
+              день
+            </div>
             {days.map((d) => (
-              <div key={ymd(d)} onClick={() => edit('tasks', { due_date: ymd(d) })} className="min-h-8 cursor-pointer space-y-0.5 border-t border-l border-line p-1">
+              <div
+                key={ymd(d)}
+                onClick={() => edit('tasks', { due_date: ymd(d) })}
+                className="min-h-8 cursor-pointer space-y-0.5 border-t border-l border-line p-1"
+              >
                 {itemsFor(ymd(d))
                   .filter((i) => i.allDay)
                   .map((i) => (
@@ -186,7 +245,12 @@ export function CalendarPage() {
                 return (
                   <div key={day} className="relative border-l border-line">
                     {Array.from({ length: 24 }, (_, h) => (
-                      <div key={h} onClick={() => newEvent(day, h)} className="absolute inset-x-0 cursor-pointer border-t border-line/60 hover:bg-hover/60" style={{ top: h * HOUR, height: HOUR }} />
+                      <div
+                        key={h}
+                        onClick={() => newEvent(day, h)}
+                        className="absolute inset-x-0 cursor-pointer border-t border-line/60 hover:bg-hover/60"
+                        style={{ top: h * HOUR, height: HOUR }}
+                      />
                     ))}
                     {isToday(d) && <NowLine />}
                     {timed.map(({ item, col, cols }) => (
@@ -194,7 +258,10 @@ export function CalendarPage() {
                         key={item.key}
                         type="button"
                         onClick={() => open(item)}
-                        className={clsx('absolute overflow-hidden rounded-[7px] border-l-[3px] px-1.5 py-1 text-left text-[12px] leading-tight shadow-sm hover:brightness-95', item.done && 'line-through opacity-60')}
+                        className={clsx(
+                          'absolute overflow-hidden rounded-[7px] border-l-[3px] px-1.5 py-1 text-left text-[12px] leading-tight shadow-sm hover:brightness-95',
+                          item.done && 'line-through opacity-60',
+                        )}
                         style={{
                           top: (item.startMin / 60) * HOUR + 1,
                           height: Math.max(((item.endMin - item.startMin) / 60) * HOUR - 2, 20),
@@ -240,7 +307,19 @@ function NowLine() {
   )
 }
 
-function MonthGrid({ anchor, itemsFor, onOpen, onNew, onDay }: { anchor: Date; itemsFor: (d: string) => Item[]; onOpen: (i: Item) => void; onNew: (d: string) => void; onDay: (d: Date) => void }) {
+function MonthGrid({
+  anchor,
+  itemsFor,
+  onOpen,
+  onNew,
+  onDay,
+}: {
+  anchor: Date
+  itemsFor: (d: string) => Item[]
+  onOpen: (i: Item) => void
+  onNew: (d: string) => void
+  onDay: (d: Date) => void
+}) {
   const start = startOfISOWeek(startOfMonth(anchor))
   const end = endOfISOWeek(endOfMonth(anchor))
   const days: Date[] = []
@@ -262,7 +341,12 @@ function MonthGrid({ anchor, itemsFor, onOpen, onNew, onDay }: { anchor: Date; i
             <div
               key={day}
               onClick={() => onNew(day)}
-              className={clsx('min-h-24 cursor-pointer p-1 hover:bg-hover/50 sm:min-h-28', i % 7 && 'border-l border-line', i >= 7 && 'border-t border-line', !isSameMonth(d, anchor) && 'bg-surface-2/40')}
+              className={clsx(
+                'min-h-24 cursor-pointer p-1 hover:bg-hover/50 sm:min-h-28',
+                i % 7 && 'border-l border-line',
+                i >= 7 && 'border-t border-line',
+                !isSameMonth(d, anchor) && 'bg-surface-2/40',
+              )}
             >
               <button
                 type="button"

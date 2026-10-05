@@ -26,7 +26,17 @@ export function DailyArea({ data, name, color = 'var(--s1)', height = 200 }: Pro
         <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={32} />
         <YAxis {...axis} width={36} allowDecimals={false} />
         <Tooltip content={<Tip name={name} />} cursor={{ stroke: 'var(--axis)', strokeWidth: 1 }} />
-        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={color} fillOpacity={0.12} dot={false} isAnimationActive={false} activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={color}
+          strokeWidth={2}
+          fill={color}
+          fillOpacity={0.12}
+          dot={false}
+          isAnimationActive={false}
+          activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }}
+        />
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -75,7 +85,12 @@ export function ActivityGrid({ days }: { days: { day: string; value: number }[] 
     <div className="grid grid-flow-col grid-rows-7 gap-[3px] overflow-x-auto" aria-label="Дни активности">
       {cells.map((d, i) =>
         d ? (
-          <div key={d.day} title={`${shortDay(d.day)}: ${d.value ? 'заходил' : 'не заходил'}`} className="h-[11px] w-[11px] rounded-[3px]" style={{ background: d.value ? 'var(--s3)' : 'var(--surface-2)' }} />
+          <div
+            key={d.day}
+            title={`${shortDay(d.day)}: ${d.value ? 'заходил' : 'не заходил'}`}
+            className="h-[11px] w-[11px] rounded-[3px]"
+            style={{ background: d.value ? 'var(--s3)' : 'var(--surface-2)' }}
+          />
         ) : (
           <div key={`pad-${i}`} className="h-[11px] w-[11px]" />
         ),

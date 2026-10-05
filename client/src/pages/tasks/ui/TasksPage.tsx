@@ -62,7 +62,13 @@ export function TasksPage() {
 
   const addQuick = () => {
     if (!quick.trim()) return
-    save.mutate({ title: quick.trim(), status: 'todo', priority: 'medium', due_date: todayStr(), project_id: project && project !== 'none' ? Number(project) : null })
+    save.mutate({
+      title: quick.trim(),
+      status: 'todo',
+      priority: 'medium',
+      due_date: todayStr(),
+      project_id: project && project !== 'none' ? Number(project) : null,
+    })
     setQuick('')
   }
 
@@ -73,7 +79,14 @@ export function TasksPage() {
         subtitle={`${tasks.filter((t) => t.status !== 'done').length} открытых · ${tasks.filter((t) => t.status !== 'done' && t.due_date && t.due_date < todayStr()).length} просрочено`}
         actions={
           <>
-            <Segmented value={view} onChange={setView} options={[{ value: 'list', label: 'Список' }, { value: 'board', label: 'Доска' }]} />
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'list', label: 'Список' },
+                { value: 'board', label: 'Доска' },
+              ]}
+            />
             <Button variant="primary" icon={Plus} onClick={() => edit('tasks', project && project !== 'none' ? { project_id: Number(project) } : {})}>
               Задача
             </Button>
@@ -86,7 +99,15 @@ export function TasksPage() {
         <ProjectFilter value={project} onChange={setProject} withNone />
         <FilterSelect value={priority} onChange={setPriority} all="Любой приоритет" options={priorities.map((p) => ({ value: p.value, label: p.label }))} />
         {view === 'list' && (
-          <Segmented value={show} onChange={setShow} options={[{ value: 'open', label: 'Открытые' }, { value: 'done', label: 'Выполненные' }, { value: 'all', label: 'Все' }]} />
+          <Segmented
+            value={show}
+            onChange={setShow}
+            options={[
+              { value: 'open', label: 'Открытые' },
+              { value: 'done', label: 'Выполненные' },
+              { value: 'all', label: 'Все' },
+            ]}
+          />
         )}
       </div>
 
@@ -143,12 +164,26 @@ export function TasksPage() {
                 </div>
                 <div className="flex flex-col gap-2 px-2 pb-2">
                   {(s.value === 'done' ? col.slice(0, 30) : col).map((t) => (
-                    <div key={t.id} draggable onDragStart={() => setDragId(t.id)} className={clsx('relative overflow-hidden rounded-[9px] border border-line bg-surface shadow-[0_1px_2px_rgb(0_0_0/0.04)]', dragId === t.id && 'opacity-50')}>
+                    <div
+                      key={t.id}
+                      draggable
+                      onDragStart={() => setDragId(t.id)}
+                      className={clsx(
+                        'relative overflow-hidden rounded-[9px] border border-line bg-surface shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
+                        dragId === t.id && 'opacity-50',
+                      )}
+                    >
                       <div className="[&>div]:pr-10">
                         <TaskRow task={t} />
                       </div>
                       <div className="absolute top-1.5 right-1.5">
-                        <StatusPicker value={t.status || 'todo'} options={taskStatuses} onChange={(v) => save.mutate({ id: t.id, status: v as TaskStatus })} label="Статус" compact />
+                        <StatusPicker
+                          value={t.status || 'todo'}
+                          options={taskStatuses}
+                          onChange={(v) => save.mutate({ id: t.id, status: v as TaskStatus })}
+                          label="Статус"
+                          compact
+                        />
                       </div>
                     </div>
                   ))}

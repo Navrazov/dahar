@@ -5,7 +5,19 @@ import { ImagePlus, Trash2 } from 'lucide-react'
 import { api, useList, type CollectionName, type Settings } from '@/shared/api'
 import { swatches, WEEKDAY_SHORT } from '@/shared/lib'
 import {
-  DatePicker, DateTimePicker, FieldLabel, IconButton, Input, NumberInput, PhoneInput, PopoverPanel, Select, Switch, TelegramInput, Textarea, TimePicker,
+  DatePicker,
+  DateTimePicker,
+  FieldLabel,
+  IconButton,
+  Input,
+  NumberInput,
+  PhoneInput,
+  PopoverPanel,
+  Select,
+  Switch,
+  TelegramInput,
+  Textarea,
+  TimePicker,
 } from '@/shared/ui'
 import type { Field, Values } from '../config/forms'
 
@@ -35,8 +47,14 @@ export function FieldControl({
   autoFocus?: boolean
 }) {
   const wide = f.full || f.type === 'textarea' || f.type === 'image' || f.type === 'days' || f.type === 'color'
+  const group = f.type === 'days' || f.type === 'color' || f.type === 'image'
   const wrap = (node: ReactNode) => (
-    <FieldLabel label={f.label + (f.required ? ' *' : '')} className={clsx(wide && 'sm:col-span-2', error && '[&_input]:border-bad [&_button]:border-bad')} hint={error ? <span className="text-bad">{error}</span> : undefined}>
+    <FieldLabel
+      group={group}
+      label={f.label + (f.required ? ' *' : '')}
+      className={clsx(wide && 'sm:col-span-2', error && '[&_input]:border-bad [&_button]:border-bad')}
+      hint={error ? <span className="text-bad">{error}</span> : undefined}
+    >
       {node}
     </FieldLabel>
   )
@@ -45,7 +63,16 @@ export function FieldControl({
     case 'textarea':
       return wrap(<Textarea value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={f.placeholder} />)
     case 'number':
-      return wrap(<NumberInput value={value} onChange={onChange} placeholder={f.placeholder} suffix={resolveSuffix(f.suffix, settings)} allowNegative={!f.positive} autoFocus={autoFocus} />)
+      return wrap(
+        <NumberInput
+          value={value}
+          onChange={onChange}
+          placeholder={f.placeholder}
+          suffix={resolveSuffix(f.suffix, settings)}
+          allowNegative={!f.positive}
+          autoFocus={autoFocus}
+        />,
+      )
     case 'date':
       return wrap(<DatePicker value={value} onChange={onChange} />)
     case 'time':
@@ -61,7 +88,16 @@ export function FieldControl({
     case 'telegram':
       return wrap(<TelegramInput value={value} onChange={onChange} />)
     case 'email':
-      return wrap(<Input type="email" inputMode="email" autoComplete="off" value={value ?? ''} placeholder="name@example.com" onChange={(e) => onChange(e.target.value.trim())} />)
+      return wrap(
+        <Input
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          value={value ?? ''}
+          placeholder="name@example.com"
+          onChange={(e) => onChange(e.target.value.trim())}
+        />,
+      )
     case 'checkbox':
       return (
         <div className={clsx('self-end', f.full && 'sm:col-span-2')}>
@@ -97,7 +133,10 @@ export function FieldControl({
                 type="button"
                 aria-pressed={on}
                 onClick={() => onChange(on ? days.filter((x) => x !== d) : [...days, d].sort())}
-                className={clsx('h-9 w-11 rounded-[7px] border text-[13.5px] font-medium transition-colors', on ? 'border-ink bg-ink text-on-ink' : 'border-line text-fg-2 hover:bg-hover')}
+                className={clsx(
+                  'h-9 w-11 rounded-[7px] border text-[13.5px] font-medium transition-colors',
+                  on ? 'border-ink bg-ink text-on-ink' : 'border-line text-fg-2 hover:bg-hover',
+                )}
               >
                 {n}
               </button>
@@ -111,7 +150,14 @@ export function FieldControl({
     default:
       return wrap(
         f.suggest || f.suggestFrom ? (
-          <SuggestInput table={f.suggestFrom?.table ?? table} column={f.suggestFrom?.column ?? f.name} value={value} onChange={onChange} placeholder={f.placeholder} autoFocus={autoFocus} />
+          <SuggestInput
+            table={f.suggestFrom?.table ?? table}
+            column={f.suggestFrom?.column ?? f.name}
+            value={value}
+            onChange={onChange}
+            placeholder={f.placeholder}
+            autoFocus={autoFocus}
+          />
         ) : (
           <Input value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={f.placeholder} autoFocus={autoFocus} />
         ),
@@ -119,7 +165,21 @@ export function FieldControl({
   }
 }
 
-function SuggestInput({ table, column, value, onChange, placeholder, autoFocus }: { table: CollectionName; column: string; value: any; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean }) {
+function SuggestInput({
+  table,
+  column,
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+}: {
+  table: CollectionName
+  column: string
+  value: any
+  onChange: (v: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+}) {
   const rows = useList(table) as any[]
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -188,13 +248,19 @@ function RefSelect({ field, value, values, onChange }: { field: Field; value: an
       options = partners.map((p) => ({ value: String(p.id), label: p.name, hint: p.company ?? undefined }))
       break
     case 'products':
-      options = products.map((p) => ({ value: String(p.id), label: `${p.brand ? p.brand + ' — ' : ''}${p.name}${p.volume ? ' ' + p.volume : ''}`, hint: `${p.stock ?? 0} шт` }))
+      options = products.map((p) => ({
+        value: String(p.id),
+        label: `${p.brand ? p.brand + ' — ' : ''}${p.name}${p.volume ? ' ' + p.volume : ''}`,
+        hint: `${p.stock ?? 0} шт`,
+      }))
       break
     case 'customers':
       options = customers.map((c) => ({ value: String(c.id), label: c.name, hint: c.instagram ?? c.phone ?? undefined }))
       break
     case 'accounts':
-      options = accounts.filter((a) => (!a.archived || a.id === value) && !(field.name === 'to_account_id' && a.id === values.account_id)).map((a) => ({ value: String(a.id), label: a.name, dot: a.color }))
+      options = accounts
+        .filter((a) => (!a.archived || a.id === value) && !(field.name === 'to_account_id' && a.id === values.account_id))
+        .map((a) => ({ value: String(a.id), label: a.name, dot: a.color }))
       break
     case 'goals':
       options = goals
@@ -202,7 +268,14 @@ function RefSelect({ field, value, values, onChange }: { field: Field; value: an
         .map((g) => ({ value: String(g.id), label: g.title }))
       break
   }
-  const empty = { projects: 'Без проекта', partners: 'Без партнёра', products: 'Без товара', customers: 'Без клиента', accounts: 'Не выбран', goals: 'Без цели' }[field.ref!]
+  const empty = {
+    projects: 'Без проекта',
+    partners: 'Без партнёра',
+    products: 'Без товара',
+    customers: 'Без клиента',
+    accounts: 'Не выбран',
+    goals: 'Без цели',
+  }[field.ref!]
   return (
     <Select
       value={value == null ? null : String(value)}

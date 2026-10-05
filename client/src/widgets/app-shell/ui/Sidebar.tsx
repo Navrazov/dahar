@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ChevronsUpDown, LayoutGrid, LogOut, Plus, Settings, type LucideIcon } from 'lucide-react'
+import { ChevronsUpDown, LayoutGrid, LogOut, Plus, Search, Settings, type LucideIcon } from 'lucide-react'
 import { useList } from '@/shared/api'
 import { DropdownMenu, Logo } from '@/shared/ui'
 import { useModules } from '@/entities/module'
@@ -8,7 +8,7 @@ import { useUser } from '@/entities/session'
 import { useLogout } from '@/features/auth'
 import { useEditor } from '@/features/edit-record'
 import { ThemeSwitch } from './ThemeSwitch'
-import { coreNav, quickAdd } from './nav'
+import { coreNav, quickAdd } from '@/shared/config'
 
 const itemCls = (active: boolean) =>
   clsx(
@@ -44,7 +44,10 @@ function QuickAdd() {
     <DropdownMenu
       className="w-[var(--radix-dropdown-menu-trigger-width)]"
       trigger={
-        <button type="button" className="flex h-9 w-full items-center gap-2 rounded-[7px] bg-ink px-3 text-[14px] font-medium text-on-ink transition-colors hover:bg-ink/85">
+        <button
+          type="button"
+          className="flex h-9 w-full items-center gap-2 rounded-[7px] bg-ink px-3 text-[14px] font-medium text-on-ink transition-colors hover:bg-ink/85"
+        >
           <Plus size={16} />
           Добавить
           <kbd className="ml-auto rounded-[4px] border border-on-ink/20 px-1.5 font-sans text-[11px] text-on-ink/70">N</kbd>
@@ -69,7 +72,9 @@ function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
       className="w-[var(--radix-dropdown-menu-trigger-width)]"
       trigger={
         <button type="button" className="flex h-11 w-full items-center gap-2.5 rounded-[8px] px-2 text-left hover:bg-hover">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-on-ink">{name.slice(0, 1).toUpperCase()}</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-on-ink">
+            {name.slice(0, 1).toUpperCase()}
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13.5px] font-medium">{name}</span>
             <span className="block truncate text-[12px] text-fg-3">@{user.login}</span>
@@ -87,7 +92,19 @@ function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+function SearchButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={clsx(itemCls(false), 'w-full')}>
+      <Search size={16} strokeWidth={1.75} className="shrink-0" />
+      <span className="truncate">Поиск</span>
+      <kbd className="ml-auto rounded-[4px] border border-line px-1.5 font-sans text-[11px] text-fg-3">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+    </button>
+  )
+}
+
+export function Sidebar({ onNavigate, onSearch }: { onNavigate?: () => void; onSearch: () => void }) {
   const projects = useList('projects')
   const modules = useModules()
   const pinned = projects.filter((p) => (p.status === 'active' || p.pinned) && p.status !== 'archived').slice(0, 8)
@@ -97,6 +114,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <Logo className="px-2.5" />
       <QuickAdd />
       <nav className="flex flex-col gap-px">
+        <SearchButton onClick={onSearch} />
         {coreNav.map((n) => (
           <Item key={n.to} {...n} onClick={onNavigate} />
         ))}
@@ -118,7 +136,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <Group
         title="Направления"
         action={
-          <NavLink to="/settings#modules" onClick={onNavigate} title="Подключить направление" aria-label="Подключить направление" className="rounded p-0.5 text-fg-3 hover:bg-hover hover:text-fg">
+          <NavLink
+            to="/settings#modules"
+            onClick={onNavigate}
+            title="Подключить направление"
+            aria-label="Подключить направление"
+            className="rounded p-0.5 text-fg-3 hover:bg-hover hover:text-fg"
+          >
             <Plus size={14} />
           </NavLink>
         }

@@ -12,12 +12,50 @@ export interface ModuleDef {
 }
 
 export const moduleCatalog: ModuleDef[] = [
-  { key: 'habits', label: 'Привычки', to: '/habits', icon: Repeat, defaultEnabled: true, description: 'Что делать каждый день и от чего избавиться. Серии и статистика' },
+  {
+    key: 'habits',
+    label: 'Привычки',
+    to: '/habits',
+    icon: Repeat,
+    defaultEnabled: true,
+    description: 'Что делать каждый день и от чего избавиться. Серии и статистика',
+  },
   { key: 'finance', label: 'Финансы', to: '/finance', icon: Wallet, defaultEnabled: true, description: 'Доходы, расходы, счета, бюджеты по категориям' },
-  { key: 'calculator', label: 'Калькулятор', to: '/calculator', icon: Calculator, defaultEnabled: true, description: 'Сложный процент с пополнениями и график роста капитала' },
-  { key: 'partners', label: 'Партнёры', to: '/partners', icon: Handshake, projectSetting: 'partners_project_id', defaultEnabled: false, description: 'Воронка партнёров, контакты, ежемесячные отчёты, оборот' },
-  { key: 'trading', label: 'Трейдинг', to: '/trading', icon: CandlestickChart, projectSetting: 'trading_project_id', defaultEnabled: false, description: 'Журнал сделок, статистика, план обучения' },
-  { key: 'business', label: 'Бизнес', to: '/business', icon: Store, projectSetting: 'business_project_id', defaultEnabled: false, description: 'Товары и склад, продажи, клиенты, расходы, контент-план' },
+  {
+    key: 'calculator',
+    label: 'Калькулятор',
+    to: '/calculator',
+    icon: Calculator,
+    defaultEnabled: true,
+    description: 'Сложный процент с пополнениями и график роста капитала',
+  },
+  {
+    key: 'partners',
+    label: 'Партнёры',
+    to: '/partners',
+    icon: Handshake,
+    projectSetting: 'partners_project_id',
+    defaultEnabled: false,
+    description: 'Воронка партнёров, контакты, ежемесячные отчёты, оборот',
+  },
+  {
+    key: 'trading',
+    label: 'Трейдинг',
+    to: '/trading',
+    icon: CandlestickChart,
+    projectSetting: 'trading_project_id',
+    defaultEnabled: false,
+    description: 'Журнал сделок, статистика, план обучения',
+  },
+  {
+    key: 'business',
+    label: 'Бизнес',
+    to: '/business',
+    icon: Store,
+    projectSetting: 'business_project_id',
+    defaultEnabled: false,
+    description: 'Товары и склад, продажи, клиенты, расходы, контент-план',
+  },
 ]
 
 export const moduleByKey = Object.fromEntries(moduleCatalog.map((m) => [m.key, m])) as Record<ModuleKey, ModuleDef>

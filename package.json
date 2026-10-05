@@ -2,6 +2,7 @@
   "name": "dahar",
   "private": true,
   "workspaces": [
+    "shared",
     "server",
     "client",
     "admin"
@@ -12,13 +13,34 @@
     "start": "npm run start -w server",
     "user": "npm run user -w server --",
     "admin": "npm run admin -w server --",
-    "test": "npm test -w server",
-    "lint:fsd": "npm run lint:fsd -w client && npm run lint:fsd -w admin"
+    "test": "npm test -w server && npm test -w client",
+    "lint:fsd": "npm run lint:fsd -w client && npm run lint:fsd -w admin",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run lint:fsd",
+    "test:e2e": "npm run build && playwright test",
+    "test:unit": "npm test -w client"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.71.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
+  },
+  "type": "module",
+  "overrides": {
+    "eslint-plugin-react-hooks": {
+      "zod-validation-error": "^4.0.0"
+    }
   }
 }

@@ -2,3 +2,4 @@ export { Badge, Button, Card, CardHeader, controlCls, Empty, Field, Input, KeyVa
 export { MetricStrip, type Metric } from './metrics'
 export { Modal } from './modal'
 export { Logo } from './logo'
+export { QrCode } from './qr-code'

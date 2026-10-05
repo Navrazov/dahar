@@ -20,7 +20,10 @@ export function ThemeSwitch() {
           aria-label={o.label}
           aria-pressed={theme === o.v}
           onClick={() => setTheme(o.v)}
-          className={clsx('flex h-7 flex-1 items-center justify-center rounded-[6px] transition-colors', theme === o.v ? 'bg-surface text-fg shadow-[0_1px_2px_rgb(0_0_0/0.07)]' : 'text-fg-3 hover:text-fg')}
+          className={clsx(
+            'flex h-7 flex-1 items-center justify-center rounded-[6px] transition-colors',
+            theme === o.v ? 'bg-surface text-fg shadow-[0_1px_2px_rgb(0_0_0/0.07)]' : 'text-fg-3 hover:text-fg',
+          )}
         >
           <o.icon size={14} />
         </button>

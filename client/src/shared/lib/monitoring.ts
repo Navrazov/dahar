@@ -3,8 +3,12 @@ type Sentry = typeof import('@sentry/react')
 let sentry: Sentry | null = null
 let sent = 0
 
+/** Безобидные сообщения браузера, которые не говорят об ошибке в приложении. */
+const BENIGN = [/^ResizeObserver loop/, /^Script error\.?$/]
+
 export function reportClientError(error: unknown, component?: string) {
   const err = error instanceof Error ? error : new Error(String(error))
+  if (BENIGN.some((re) => re.test(err.message))) return
   sentry?.captureException(err)
   if (sent++ > 20) return
   fetch('/api/client-errors', {

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff } from 'lucide-react'
-import { api } from '@/shared/api'
+import { api, type User } from '@/shared/api'
 import { Button, FieldLabel, Input, Logo } from '@/shared/ui'
 import { signInLocally } from '@/entities/session'
 
@@ -10,22 +10,80 @@ export function LoginForm() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
+  const [ticket, setTicket] = useState<string | null>(null)
+  const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!login || !password) return setError('Введите логин и пароль')
+  const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     setError('')
     try {
-      const { user } = await api.login(login, password)
-      signInLocally(qc, user)
+      await fn()
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setBusy(false)
     }
+  }
+
+  const done = (user: User) => signInLocally(qc, user)
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!login || !password) return setError('Введите логин и пароль')
+    run(async () => {
+      const res = await api.login(login, password)
+      if ('twoFactor' in res) {
+        setTicket(res.ticket)
+        setCode('')
+      } else done(res.user)
+    })
+  }
+
+  const submitCode = (e: FormEvent) => {
+    e.preventDefault()
+    if (!ticket || !code.trim()) return setError('Введите код')
+    run(async () => {
+      try {
+        done((await api.loginCode(ticket, code.trim())).user)
+      } catch (err) {
+        if (/истекло|заново/i.test((err as Error).message)) setTicket(null)
+        throw err
+      }
+    })
+  }
+
+  if (ticket) {
+    return (
+      <form onSubmit={submitCode} className="w-full max-w-[340px]">
+        <Logo className="mb-10" />
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em]">Код подтверждения</h1>
+        <p className="mt-1.5 mb-7 text-[14px] text-fg-2">
+          Откройте приложение-аутентификатор и введите 6 цифр. Если телефона нет под рукой — подойдёт код восстановления.
+        </p>
+        <div className="space-y-4">
+          <FieldLabel label="Код">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              placeholder="123 456"
+              className="h-10 text-center text-[18px] tracking-[0.3em] tabular"
+            />
+          </FieldLabel>
+          {error && <p className="animate-[fade-in_200ms_ease-out] text-[13px] text-bad">{error}</p>}
+          <Button type="submit" variant="primary" loading={busy} className="h-10 w-full">
+            {busy ? 'Проверяем…' : 'Подтвердить'}
+          </Button>
+          <Button type="button" variant="ghost" className="w-full" onClick={() => setTicket(null)}>
+            Назад
+          </Button>
+        </div>
+      </form>
+    )
   }
 
   return (
@@ -39,7 +97,13 @@ export function LoginForm() {
         </FieldLabel>
         <FieldLabel label="Пароль">
           <div className="relative">
-            <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="h-10 pr-10" />
+            <Input
+              type={show ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="h-10 pr-10"
+            />
             <button
               type="button"
               onClick={() => setShow((s) => !s)}

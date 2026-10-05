@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import type { ModuleKey } from '@/shared/api'
 import { EditorProvider } from '@/features/edit-record'
@@ -6,7 +6,24 @@ import { AppShell } from '@/widgets/app-shell'
 import { ModuleGate } from '@/widgets/module-gate'
 import { SuspenseSkeleton } from '@/shared/ui'
 
-const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })))
+const loaders: (() => Promise<unknown>)[] = []
+
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => {
+  loaders.push(load)
+  return lazy(() => load().then((m) => ({ default: m[name] })))
+}
+
+/**
+ * Когда браузер свободен, подгружаем остальные страницы: переходы становятся мгновенными,
+ * а service worker кладёт их в кэш — без сети откроется любая страница, а не только посещённые.
+ */
+function useWarmRoutes() {
+  useEffect(() => {
+    const idle = (cb: () => void) => ('requestIdleCallback' in window ? window.requestIdleCallback(cb, { timeout: 5000 }) : setTimeout(cb, 3000))
+    const id = idle(() => loaders.forEach((load) => load().catch(() => {})))
+    return () => ('cancelIdleCallback' in window ? window.cancelIdleCallback(id as number) : clearTimeout(id as ReturnType<typeof setTimeout>))
+  }, [])
+}
 
 const DashboardPage = page(() => import('@/pages/dashboard'), 'DashboardPage')
 const TasksPage = page(() => import('@/pages/tasks'), 'TasksPage')
@@ -27,6 +44,7 @@ const view = (node: ReactNode) => <Suspense fallback={<SuspenseSkeleton />}>{nod
 const gated = (module: ModuleKey, node: ReactNode) => <ModuleGate module={module}>{view(node)}</ModuleGate>
 
 export function AppRouter() {
+  useWarmRoutes()
   return (
     <BrowserRouter>
       <EditorProvider>

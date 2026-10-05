@@ -2,7 +2,19 @@ import type { ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
-export function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode }) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+}: {
+  open: boolean
+  onClose: () => void
+  title: ReactNode
+  children: ReactNode
+  footer?: ReactNode
+}) {
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
@@ -11,7 +23,10 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
             <Dialog.Title className="text-[16px] font-semibold tracking-[-0.015em]">{title}</Dialog.Title>
             <Dialog.Description className="sr-only">{typeof title === 'string' ? title : 'Диалог'}</Dialog.Description>
-            <Dialog.Close aria-label="Закрыть" className="-mr-1.5 flex h-7 w-7 items-center justify-center rounded-[6px] text-fg-3 hover:bg-hover hover:text-fg">
+            <Dialog.Close
+              aria-label="Закрыть"
+              className="-mr-1.5 flex h-7 w-7 items-center justify-center rounded-[6px] text-fg-3 hover:bg-hover hover:text-fg"
+            >
               <X size={16} />
             </Dialog.Close>
           </div>

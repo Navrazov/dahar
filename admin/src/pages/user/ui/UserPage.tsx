@@ -54,7 +54,11 @@ export function UserPage() {
           </Card>
           <Card>
             <CardHeader title="Записи по разделам" />
-            {records ? <RankBars items={u.collections.map((c) => ({ label: collectionLabels[c.collection] ?? c.collection, value: c.total }))} /> : <Empty title="Записей нет" />}
+            {records ? (
+              <RankBars items={u.collections.map((c) => ({ label: collectionLabels[c.collection] ?? c.collection, value: c.total }))} />
+            ) : (
+              <Empty title="Записей нет" />
+            )}
           </Card>
           <Card>
             <CardHeader title="Активные сессии" sub={u.sessions.length} />

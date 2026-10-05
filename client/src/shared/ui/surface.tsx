@@ -37,7 +37,15 @@ export function Stat({ label, value, sub, tone }: { label: ReactNode; value: Rea
   return (
     <div className="rounded-[10px] border border-line bg-surface px-4 py-3">
       <div className="truncate text-[12.5px] text-fg-2">{label}</div>
-      <div className={clsx('mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular', tone === 'good' && 'text-good', tone === 'bad' && 'text-bad')}>{value}</div>
+      <div
+        className={clsx(
+          'mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular',
+          tone === 'good' && 'text-good',
+          tone === 'bad' && 'text-bad',
+        )}
+      >
+        {value}
+      </div>
       {sub != null && <div className="mt-0.5 truncate text-[12.5px] text-fg-3">{sub}</div>}
     </div>
   )

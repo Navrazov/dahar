@@ -62,7 +62,11 @@ export function OverviewPage() {
         </Card>
         <Card>
           <CardHeader title="Подключённые направления" sub="доля пользователей" />
-          <RankBars items={[...data.adoption].sort((a, b) => b.users - a.users).map((m) => ({ label: moduleLabels[m.key] ?? m.key, value: m.users }))} total={t.users || 1} color="var(--s2)" />
+          <RankBars
+            items={[...data.adoption].sort((a, b) => b.users - a.users).map((m) => ({ label: moduleLabels[m.key] ?? m.key, value: m.users }))}
+            total={t.users || 1}
+            color="var(--s2)"
+          />
         </Card>
       </div>
     </>

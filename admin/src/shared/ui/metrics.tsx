@@ -10,7 +10,15 @@ export function MetricStrip({ items, className }: { items: Metric[]; className?:
       {items.map((m) => (
         <div key={m.label} className="-mt-px -ml-px border-t border-l border-line px-4 py-3.5">
           <div className="truncate text-[12.5px] text-fg-2">{m.label}</div>
-          <div className={clsx('mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular', m.tone === 'good' && 'text-good', m.tone === 'bad' && 'text-bad')}>{m.value}</div>
+          <div
+            className={clsx(
+              'mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular',
+              m.tone === 'good' && 'text-good',
+              m.tone === 'bad' && 'text-bad',
+            )}
+          >
+            {m.value}
+          </div>
           {m.sub != null && <div className="mt-0.5 truncate text-[12px] text-fg-3">{m.sub}</div>}
         </div>
       ))}

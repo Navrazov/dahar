@@ -63,7 +63,11 @@ export function CalculatorPage() {
   const real = p.inflation ? last.balance / Math.pow(1 + p.inflation / 100, p.years) : null
 
   const yearly = points.filter((x) => x.month % 12 === 0 || x.month === points.length - 1)
-  const chart = (granularity === 'year' ? yearly : points).map((x) => ({ t: x.month, contributed: Math.round(x.contributed), growth: Math.round(x.balance - x.contributed) }))
+  const chart = (granularity === 'year' ? yearly : points).map((x) => ({
+    t: x.month,
+    contributed: Math.round(x.contributed),
+    growth: Math.round(x.balance - x.contributed),
+  }))
   const tLabel = (m: number) => (granularity === 'year' || m % 12 === 0 ? `${num(m / 12, 1)} г.` : `${Math.floor(m / 12)} г. ${m % 12} мес.`)
 
   const fields: { k: keyof Params; label: string; suffix: string; negative?: boolean }[] = [
@@ -89,16 +93,29 @@ export function CalculatorPage() {
             <Select
               value={String(p.compounding)}
               onChange={(v) => v && setP((prev) => ({ ...prev, compounding: Number(v) as Params['compounding'] }))}
-              options={[{ value: '12', label: 'Ежемесячно' }, { value: '4', label: 'Ежеквартально' }, { value: '1', label: 'Ежегодно' }]}
+              options={[
+                { value: '12', label: 'Ежемесячно' },
+                { value: '4', label: 'Ежеквартально' },
+                { value: '1', label: 'Ежегодно' },
+              ]}
             />
           </FieldLabel>
         </Card>
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Stat label="Итоговый капитал" value={money(last.balance, cur)} sub={real ? `≈ ${money(real, cur)} в сегодняшних деньгах` : `через ${p.years} ${p.years === 1 ? 'год' : 'лет'}`} />
+            <Stat
+              label="Итоговый капитал"
+              value={money(last.balance, cur)}
+              sub={real ? `≈ ${money(real, cur)} в сегодняшних деньгах` : `через ${p.years} ${p.years === 1 ? 'год' : 'лет'}`}
+            />
             <Stat label="Внесено" value={money(last.contributed, cur)} />
-            <Stat label="Доход от инвестиций" value={money(profit, cur)} tone="good" sub={last.contributed ? `+${num((profit / last.contributed) * 100, 1)}% к вложенному` : undefined} />
+            <Stat
+              label="Доход от инвестиций"
+              value={money(profit, cur)}
+              tone="good"
+              sub={last.contributed ? `+${num((profit / last.contributed) * 100, 1)}% к вложенному` : undefined}
+            />
             <Stat label="Доля дохода в капитале" value={last.balance ? `${num((profit / last.balance) * 100, 0)}%` : '—'} />
           </div>
           <Card>
@@ -106,8 +123,20 @@ export function CalculatorPage() {
               title="Рост капитала"
               action={
                 <div className="flex items-center gap-3">
-                  <Legend items={[{ label: 'Внесено', color: 'var(--s1)' }, { label: 'Доход', color: 'var(--s3)' }]} />
-                  <Segmented value={granularity} onChange={setGranularity} options={[{ value: 'year', label: 'Годы' }, { value: 'month', label: 'Месяцы' }]} />
+                  <Legend
+                    items={[
+                      { label: 'Внесено', color: 'var(--s1)' },
+                      { label: 'Доход', color: 'var(--s3)' },
+                    ]}
+                  />
+                  <Segmented
+                    value={granularity}
+                    onChange={setGranularity}
+                    options={[
+                      { value: 'year', label: 'Годы' },
+                      { value: 'month', label: 'Месяцы' },
+                    ]}
+                  />
                 </div>
               }
             />

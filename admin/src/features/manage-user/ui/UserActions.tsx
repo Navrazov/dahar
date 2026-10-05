@@ -40,7 +40,11 @@ export function UserActions({ user }: { user: UserDetail }) {
       <Button onClick={() => run(() => api.endSessions(user.id), 'Все сессии завершены')} disabled={busy}>
         Выйти везде
       </Button>
-      <Button variant={user.blocked_at ? 'secondary' : 'danger'} onClick={() => run(() => api.updateUser(user.id, { blocked: !user.blocked_at }), user.blocked_at ? 'Разблокирован' : 'Заблокирован')} disabled={busy}>
+      <Button
+        variant={user.blocked_at ? 'secondary' : 'danger'}
+        onClick={() => run(() => api.updateUser(user.id, { blocked: !user.blocked_at }), user.blocked_at ? 'Разблокирован' : 'Заблокирован')}
+        disabled={busy}
+      >
         {user.blocked_at ? 'Разблокировать' : 'Заблокировать'}
       </Button>
       <Button variant="danger" onClick={() => open('delete')}>
@@ -67,7 +71,11 @@ export function UserActions({ user }: { user: UserDetail }) {
         onClose={() => setDialog(null)}
         title={`Новый пароль для ${user.login}`}
         footer={
-          <Button variant="primary" disabled={busy || value.length < 8} onClick={() => run(() => api.updateUser(user.id, { password: value }), 'Пароль изменён, сессии завершены')}>
+          <Button
+            variant="primary"
+            disabled={busy || value.length < 8}
+            onClick={() => run(() => api.updateUser(user.id, { password: value }), 'Пароль изменён, сессии завершены')}
+          >
             Сменить
           </Button>
         }

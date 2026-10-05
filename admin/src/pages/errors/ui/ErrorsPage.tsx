@@ -56,7 +56,11 @@ export function ErrorsPage() {
           <div className="divide-y divide-line">
             {data.items.map((e) => (
               <div key={e.id}>
-                <button type="button" onClick={() => setOpen(open === e.id ? null : e.id)} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-hover">
+                <button
+                  type="button"
+                  onClick={() => setOpen(open === e.id ? null : e.id)}
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-hover"
+                >
                   <Badge tone={e.source === 'server' ? 'bad' : 'warn'}>{e.source === 'server' ? 'Сервер' : 'Браузер'}</Badge>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[14px]">{e.message}</div>

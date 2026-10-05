@@ -27,7 +27,15 @@ function MetricStrip({ items }: { items: Metric[] }) {
       {items.map((m) => (
         <Link key={m.to} to={m.to} className="group -mt-px -ml-px border-t border-l border-line px-4 py-3.5 transition-colors hover:bg-hover">
           <div className="truncate text-[12.5px] text-fg-2">{m.label}</div>
-          <div className={clsx('mt-1 text-[21px] leading-tight font-semibold tracking-[-0.02em] tabular', m.tone === 'good' && 'text-good', m.tone === 'bad' && 'text-bad')}>{m.value}</div>
+          <div
+            className={clsx(
+              'mt-1 text-[21px] leading-tight font-semibold tracking-[-0.02em] tabular',
+              m.tone === 'good' && 'text-good',
+              m.tone === 'bad' && 'text-bad',
+            )}
+          >
+            {m.value}
+          </div>
           {m.sub != null && <div className="mt-0.5 truncate text-[12px] text-fg-3">{m.sub}</div>}
         </Link>
       ))}
@@ -98,21 +106,61 @@ export function DashboardPage() {
   const isEmpty = !projects.length && !tasks.length && !habits.length
 
   const summaryLine = [
-    todays.length ? `${todays.length} ${plural(todays.length, 'задача', 'задачи', 'задач')}${overdue ? `, ${overdue} просрочено` : ''}` : 'задач на сегодня нет',
+    todays.length
+      ? `${todays.length} ${plural(todays.length, 'задача', 'задачи', 'задач')}${overdue ? `, ${overdue} просрочено` : ''}`
+      : 'задач на сегодня нет',
     dueHabits.length ? `привычки ${habitsDone} из ${dueHabits.length}` : null,
     eventsToday ? `${eventsToday} ${plural(eventsToday, 'событие', 'события', 'событий')}` : null,
   ].filter(Boolean)
 
   const metrics: Metric[] = [
-    { to: '/tasks', label: 'Задачи сегодня', value: `${doneToday.length} из ${doneToday.length + todays.length}`, sub: overdue ? `${overdue} просрочено` : 'выполнено', tone: overdue ? 'bad' : null },
+    {
+      to: '/tasks',
+      label: 'Задачи сегодня',
+      value: `${doneToday.length} из ${doneToday.length + todays.length}`,
+      sub: overdue ? `${overdue} просрочено` : 'выполнено',
+      tone: overdue ? 'bad' : null,
+    },
   ]
-  if (on('habits')) metrics.push({ to: '/habits', label: 'Привычки', value: `${habitsDone} из ${dueHabits.length}`, sub: dueHabits.length ? `${pct(habitsDone / dueHabits.length)} на сегодня` : 'не заведены' })
-  if (on('finance')) metrics.push({ to: '/finance', label: 'Деньги за месяц', value: signedMoney(income - expense, cur), tone: toneOf(income - expense), sub: `+${money(income, cur)} / −${money(expense, cur)}` })
-  if (on('business')) metrics.push({ to: '/business', label: moduleLabel(settings, 'business'), value: money(biz.net, cur), tone: toneOf(biz.net), sub: `выручка ${money(biz.revenue, cur)}` })
-  if (on('trading')) metrics.push({ to: '/trading', label: 'Трейдинг за месяц', value: signedMoney(monthPnl, tcur), tone: toneOf(monthPnl), sub: `баланс ${money(ts.balance, tcur)}` })
+  if (on('habits'))
+    metrics.push({
+      to: '/habits',
+      label: 'Привычки',
+      value: `${habitsDone} из ${dueHabits.length}`,
+      sub: dueHabits.length ? `${pct(habitsDone / dueHabits.length)} на сегодня` : 'не заведены',
+    })
+  if (on('finance'))
+    metrics.push({
+      to: '/finance',
+      label: 'Деньги за месяц',
+      value: signedMoney(income - expense, cur),
+      tone: toneOf(income - expense),
+      sub: `+${money(income, cur)} / −${money(expense, cur)}`,
+    })
+  if (on('business'))
+    metrics.push({
+      to: '/business',
+      label: moduleLabel(settings, 'business'),
+      value: money(biz.net, cur),
+      tone: toneOf(biz.net),
+      sub: `выручка ${money(biz.revenue, cur)}`,
+    })
+  if (on('trading'))
+    metrics.push({
+      to: '/trading',
+      label: 'Трейдинг за месяц',
+      value: signedMoney(monthPnl, tcur),
+      tone: toneOf(monthPnl),
+      sub: `баланс ${money(ts.balance, tcur)}`,
+    })
   if (on('partners')) {
     const applications = sum(partnerReports.filter((r) => monthKey(r.date) === month).map((r) => r.applications))
-    metrics.push({ to: '/partners', label: 'Партнёры', value: `${partners.filter((p) => p.status === 'active').length} активных`, sub: `${applications} заявок за месяц` })
+    metrics.push({
+      to: '/partners',
+      label: 'Партнёры',
+      value: `${partners.filter((p) => p.status === 'active').length} активных`,
+      sub: `${applications} заявок за месяц`,
+    })
   }
 
   const addQuick = () => {
@@ -135,7 +183,9 @@ export function DashboardPage() {
         <Card className="mb-8 flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="min-w-0 max-w-xl">
             <div className="text-[15px] font-semibold">С чего начать</div>
-            <p className="mt-1 text-[14px] text-fg-2">Подключите нужные направления и заведите первый проект. Или загрузите пример в настройках, чтобы посмотреть, как всё связано.</p>
+            <p className="mt-1 text-[14px] text-fg-2">
+              Подключите нужные направления и заведите первый проект. Или загрузите пример в настройках, чтобы посмотреть, как всё связано.
+            </p>
           </div>
           <div className="flex gap-2">
             <Link to="/settings#modules">
@@ -265,7 +315,9 @@ export function DashboardPage() {
                         {p.project_id ? ` · ${projectMap.get(p.project_id)?.name ?? ''}` : ''}
                       </div>
                     </div>
-                    <span className={clsx('shrink-0 text-[12.5px]', p.next_action_date! < today ? 'text-bad' : 'text-fg-3')}>{relDate(p.next_action_date)}</span>
+                    <span className={clsx('shrink-0 text-[12.5px]', p.next_action_date! < today ? 'text-bad' : 'text-fg-3')}>
+                      {relDate(p.next_action_date)}
+                    </span>
                   </Link>
                 ))}
               </div>

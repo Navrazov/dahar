@@ -95,7 +95,9 @@ function BudgetRow({ b, cur, onClick }: { b: { category: string; amount: number;
         </span>
       </div>
       <Progress value={Math.min(ratio, 1)} color={color} />
-      <div className="mt-1 text-[12px] text-fg-3">{ratio > 1 ? `Превышен на ${money(b.spent - b.amount, cur)}` : `Осталось ${money(b.amount - b.spent, cur)} · ${pct(ratio)}`}</div>
+      <div className="mt-1 text-[12px] text-fg-3">
+        {ratio > 1 ? `Превышен на ${money(b.spent - b.amount, cur)}` : `Осталось ${money(b.amount - b.spent, cur)} · ${pct(ratio)}`}
+      </div>
     </div>
   )
 }
@@ -117,7 +119,12 @@ function Overview({ s }: { s: FinanceSummary }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Доход за месяц" value={money(s.income, cur)} tone="good" />
         <Stat label="Расходы за месяц" value={money(s.expense, cur)} tone="bad" />
-        <Stat label="Остаток месяца" value={money(net, cur)} tone={net >= 0 ? 'good' : 'bad'} sub={s.income ? `норма сбережений ${pct(net / s.income)}` : undefined} />
+        <Stat
+          label="Остаток месяца"
+          value={money(net, cur)}
+          tone={net >= 0 ? 'good' : 'bad'}
+          sub={s.income ? `норма сбережений ${pct(net / s.income)}` : undefined}
+        />
         <Stat label="Все счета" value={money(total, cur)} />
         <Stat label="Накопления" value={money(savings, cur)} />
         <Stat label="Инвестиции" value={money(invest, cur)} />
@@ -134,15 +141,38 @@ function Overview({ s }: { s: FinanceSummary }) {
       )}
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card>
-          <CardHeader title="Динамика по месяцам" action={<Legend items={[{ label: 'Доход', color: 'var(--s3)' }, { label: 'Расходы', color: 'var(--s2)' }]} />} />
+          <CardHeader
+            title="Динамика по месяцам"
+            action={
+              <Legend
+                items={[
+                  { label: 'Доход', color: 'var(--s3)' },
+                  { label: 'Расходы', color: 'var(--s2)' },
+                ]}
+              />
+            }
+          />
           <div className="px-2 pb-3">
-            <BarsChart data={months} x="label" bars={[{ key: 'income', name: 'Доход', color: 'var(--s3)' }, { key: 'expense', name: 'Расходы', color: 'var(--s2)' }]} fmt={(v) => money(v, cur)} height={260} />
+            <BarsChart
+              data={months}
+              x="label"
+              bars={[
+                { key: 'income', name: 'Доход', color: 'var(--s3)' },
+                { key: 'expense', name: 'Расходы', color: 'var(--s2)' },
+              ]}
+              fmt={(v) => money(v, cur)}
+              height={260}
+            />
           </div>
         </Card>
         <Card>
           <CardHeader title="Расходы по категориям" />
           <div className="px-4 pb-4">
-            {s.expenseCategories.length ? <RankBars items={s.expenseCategories.map((c) => ({ label: c.category, value: c.amount }))} fmt={(v) => money(v, cur)} color="var(--s2)" /> : <Empty title="Расходов в этом месяце нет" />}
+            {s.expenseCategories.length ? (
+              <RankBars items={s.expenseCategories.map((c) => ({ label: c.category, value: c.amount }))} fmt={(v) => money(v, cur)} color="var(--s2)" />
+            ) : (
+              <Empty title="Расходов в этом месяце нет" />
+            )}
           </div>
         </Card>
       </div>
@@ -150,7 +180,11 @@ function Overview({ s }: { s: FinanceSummary }) {
         <Card>
           <CardHeader title="Источники дохода" />
           <div className="px-4 pb-4">
-            {s.incomeCategories.length ? <RankBars items={s.incomeCategories.map((c) => ({ label: c.category, value: c.amount }))} fmt={(v) => money(v, cur)} color="var(--s3)" /> : <Empty title="Доходов в этом месяце нет" />}
+            {s.incomeCategories.length ? (
+              <RankBars items={s.incomeCategories.map((c) => ({ label: c.category, value: c.amount }))} fmt={(v) => money(v, cur)} color="var(--s3)" />
+            ) : (
+              <Empty title="Доходов в этом месяце нет" />
+            )}
           </div>
         </Card>
         <Card>
@@ -189,12 +223,32 @@ function Transactions({ month }: { month: string }) {
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-2">
-        <FilterSelect value={kind} onChange={setKind} all="Все типы" options={[{ value: 'income', label: 'Доходы' }, { value: 'expense', label: 'Расходы' }, { value: 'transfer', label: 'Переводы' }]} />
+        <FilterSelect
+          value={kind}
+          onChange={setKind}
+          all="Все типы"
+          options={[
+            { value: 'income', label: 'Доходы' },
+            { value: 'expense', label: 'Расходы' },
+            { value: 'transfer', label: 'Переводы' },
+          ]}
+        />
         <FilterSelect value={cat} onChange={setCat} all="Все категории" options={cats.map((c) => ({ value: c, label: c }))} />
       </div>
       <Card>
         {!shown.length ? (
-          <Empty title="Операций нет" action={<Button variant="primary" icon={Plus} onClick={() => edit('transactions', { date: month === todayStr().slice(0, 7) ? todayStr() : month + '-01' })}>Добавить операцию</Button>} />
+          <Empty
+            title="Операций нет"
+            action={
+              <Button
+                variant="primary"
+                icon={Plus}
+                onClick={() => edit('transactions', { date: month === todayStr().slice(0, 7) ? todayStr() : month + '-01' })}
+              >
+                Добавить операцию
+              </Button>
+            }
+          />
         ) : (
           <Table>
             <thead>
@@ -211,7 +265,15 @@ function Transactions({ month }: { month: string }) {
               {shown.map((t) => (
                 <tr key={t.id} onClick={() => edit('transactions', t)} className="cursor-pointer hover:bg-hover">
                   <td className="whitespace-nowrap text-fg-2">{fmtDate(t.date, 'd MMM')}</td>
-                  <td>{t.kind === 'transfer' ? <span className="flex items-center gap-1 text-fg-2"><ArrowLeftRight size={12} /> Перевод</span> : t.category || '—'}</td>
+                  <td>
+                    {t.kind === 'transfer' ? (
+                      <span className="flex items-center gap-1 text-fg-2">
+                        <ArrowLeftRight size={12} /> Перевод
+                      </span>
+                    ) : (
+                      t.category || '—'
+                    )}
+                  </td>
                   <td className="text-fg-2">
                     {t.account_id ? accounts.get(t.account_id)?.name : '—'}
                     {t.kind === 'transfer' && t.to_account_id && ` → ${accounts.get(t.to_account_id)?.name ?? ''}`}
@@ -241,7 +303,15 @@ function Budgets({ s }: { s: FinanceSummary }) {
   if (!s.budgets.length) {
     return (
       <Card>
-        <Empty title="Бюджетов пока нет" hint="Задайте месячный лимит для категории расходов — например, «Кафе: 8 000 ₽». При приближении к лимиту появится предупреждение" action={<Button variant="primary" icon={Plus} onClick={() => edit('budgets')}>Добавить бюджет</Button>} />
+        <Empty
+          title="Бюджетов пока нет"
+          hint="Задайте месячный лимит для категории расходов — например, «Кафе: 8 000 ₽». При приближении к лимиту появится предупреждение"
+          action={
+            <Button variant="primary" icon={Plus} onClick={() => edit('budgets')}>
+              Добавить бюджет
+            </Button>
+          }
+        />
       </Card>
     )
   }
@@ -257,7 +327,12 @@ function Budgets({ s }: { s: FinanceSummary }) {
         <CardHeader title="По категориям" sub="клик — изменить лимит" />
         <div className="grid md:grid-cols-2">
           {s.budgets.map((b) => (
-            <BudgetRow key={b.id} b={b} cur={cur} onClick={() => edit('budgets', budgets.find((x) => x.id === b.id) ?? { id: b.id, category: b.category, amount: b.amount })} />
+            <BudgetRow
+              key={b.id}
+              b={b}
+              cur={cur}
+              onClick={() => edit('budgets', budgets.find((x) => x.id === b.id) ?? { id: b.id, category: b.category, amount: b.amount })}
+            />
           ))}
         </div>
       </Card>
@@ -274,14 +349,26 @@ function Accounts() {
   if (!accounts.length) {
     return (
       <Card>
-        <Empty title="Счетов пока нет" hint="Счета — это кошельки: карта, наличные, накопления, брокерский счёт" action={<Button variant="primary" icon={Plus} onClick={() => edit('accounts')}>Добавить счёт</Button>} />
+        <Empty
+          title="Счетов пока нет"
+          hint="Счета — это кошельки: карта, наличные, накопления, брокерский счёт"
+          action={
+            <Button variant="primary" icon={Plus} onClick={() => edit('accounts')}>
+              Добавить счёт
+            </Button>
+          }
+        />
       </Card>
     )
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {accounts.map((a, i) => (
-        <Card key={a.id} className={clsx('cursor-pointer p-4 transition-shadow hover:shadow-sm', a.archived && 'opacity-50')} onClick={() => edit('accounts', a)}>
+        <Card
+          key={a.id}
+          className={clsx('cursor-pointer p-4 transition-shadow hover:shadow-sm', a.archived && 'opacity-50')}
+          onClick={() => edit('accounts', a)}
+        >
           <div className="flex items-center gap-2 text-[13.5px]">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color || series[i % series.length] }} />
             <span className="font-medium">{a.name}</span>

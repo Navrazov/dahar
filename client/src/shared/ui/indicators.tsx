@@ -24,7 +24,11 @@ export function Badge({ tone = 'gray', children, className, dot }: { tone?: Tone
 export function Progress({ value, color, className, size = 'md' }: { value: number; color?: string; className?: string; size?: 'sm' | 'md' }) {
   const v = Math.max(0, Math.min(1, value || 0))
   return (
-    <div className={clsx('w-full overflow-hidden rounded-full bg-surface-2', size === 'sm' ? 'h-1' : 'h-1.5', className)} role="progressbar" aria-valuenow={Math.round(v * 100)}>
+    <div
+      className={clsx('w-full overflow-hidden rounded-full bg-surface-2', size === 'sm' ? 'h-1' : 'h-1.5', className)}
+      role="progressbar"
+      aria-valuenow={Math.round(v * 100)}
+    >
       <div className="h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${v * 100}%`, background: color || 'var(--accent)' }} />
     </div>
   )

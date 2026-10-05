@@ -49,7 +49,10 @@ export function IconButton({ icon: Icon, label, className, ...rest }: ButtonHTML
       type="button"
       aria-label={label}
       title={label}
-      className={clsx('inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] text-fg-3 transition-[background-color,color,transform] hover:bg-hover hover:text-fg active:scale-90', className)}
+      className={clsx(
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] text-fg-3 transition-[background-color,color,transform] hover:bg-hover hover:text-fg active:scale-90',
+        className,
+      )}
       {...rest}
     >
       <Icon size={16} />
@@ -57,7 +60,17 @@ export function IconButton({ icon: Icon, label, className, ...rest }: ButtonHTML
   )
 }
 
-export function ConfirmButton({ onConfirm, children = 'Удалить', className, loading }: { onConfirm: () => void; children?: ReactNode; className?: string; loading?: boolean }) {
+export function ConfirmButton({
+  onConfirm,
+  children = 'Удалить',
+  className,
+  loading,
+}: {
+  onConfirm: () => void
+  children?: ReactNode
+  className?: string
+  loading?: boolean
+}) {
   const [armed, setArmed] = useState(false)
   useEffect(() => {
     if (!armed) return

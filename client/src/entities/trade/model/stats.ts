@@ -85,4 +85,3 @@ export function groupTrades(trades: Trade[], key: (t: Trade) => string | null) {
     }))
     .sort((a, b) => b.pnl - a.pnl)
 }
-

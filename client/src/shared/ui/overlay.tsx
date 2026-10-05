@@ -51,12 +51,19 @@ export function Modal({
                 <Dialog.Description className="sr-only">{typeof title === 'string' ? title : 'Диалог'}</Dialog.Description>
               )}
             </div>
-            <Dialog.Close className="-mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-3 transition-colors hover:bg-hover hover:text-fg" aria-label="Закрыть">
+            <Dialog.Close
+              className="-mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-3 transition-colors hover:bg-hover hover:text-fg"
+              aria-label="Закрыть"
+            >
               <X size={16} />
             </Dialog.Close>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
-          {footer && <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">{footer}</div>}
+          {footer && (
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+              {footer}
+            </div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -130,7 +137,17 @@ function isolateScroll(el: HTMLDivElement | null) {
 
 export type MenuItem = { label: string; icon?: LucideIcon; onSelect: () => void; danger?: boolean } | 'separator'
 
-export function DropdownMenu({ trigger, items, align = 'start', className }: { trigger: ReactNode; items: MenuItem[]; align?: 'start' | 'end'; className?: string }) {
+export function DropdownMenu({
+  trigger,
+  items,
+  align = 'start',
+  className,
+}: {
+  trigger: ReactNode
+  items: MenuItem[]
+  align?: 'start' | 'end'
+  className?: string
+}) {
   return (
     <Menu.Root modal={false}>
       <Menu.Trigger asChild>{trigger}</Menu.Trigger>

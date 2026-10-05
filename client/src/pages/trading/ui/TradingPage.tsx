@@ -36,7 +36,13 @@ export function TradingPage() {
             <ModuleSettings
               title="Настройки трейдинга"
               items={[
-                { key: 'trading_start_balance', label: 'Начальный баланс', type: 'number', suffix: settings.trading_currency || '$', hint: 'От него считается текущий баланс и просадка' },
+                {
+                  key: 'trading_start_balance',
+                  label: 'Начальный баланс',
+                  type: 'number',
+                  suffix: settings.trading_currency || '$',
+                  hint: 'От него считается текущий баланс и просадка',
+                },
                 { key: 'trading_currency', label: 'Валюта счёта', type: 'currency' },
                 { key: 'trading_project_id', label: 'Проект трейдинга', type: 'project', hint: 'Новые сделки и темы автоматически привязываются к нему' },
               ]}
@@ -64,11 +70,23 @@ export function TradingPage() {
       {tab === 'learning' && <Learning topics={topics} />}
       {tab === 'goals' && (
         <Card>
-          <CardHeader title="Цели по трейдингу" action={settings.trading_project_id ? <Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('goals', { project_id: settings.trading_project_id })}>Цель</Button> : null} />
+          <CardHeader
+            title="Цели по трейдингу"
+            action={
+              settings.trading_project_id ? (
+                <Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('goals', { project_id: settings.trading_project_id })}>
+                  Цель
+                </Button>
+              ) : null
+            }
+          />
           {settings.trading_project_id ? (
             <GoalList goals={tradingGoals} hideProject />
           ) : (
-            <Empty title="Проект трейдинга не выбран" hint="Создайте проект «Трейдинг» и выберите его в настройках раздела — тогда цели, задачи и сделки соберутся вместе" />
+            <Empty
+              title="Проект трейдинга не выбран"
+              hint="Создайте проект «Трейдинг» и выберите его в настройках раздела — тогда цели, задачи и сделки соберутся вместе"
+            />
           )}
         </Card>
       )}
@@ -76,12 +94,36 @@ export function TradingPage() {
   )
 }
 
-function Overview({ s, start, cur, m, trades, topicsDone, topicsTotal }: { s: ReturnType<typeof tradingStats>; start: number; cur: string; m: (v: number, d?: number) => string; trades: Trade[]; topicsDone: number; topicsTotal: number }) {
+function Overview({
+  s,
+  start,
+  cur,
+  m,
+  trades,
+  topicsDone,
+  topicsTotal,
+}: {
+  s: ReturnType<typeof tradingStats>
+  start: number
+  cur: string
+  m: (v: number, d?: number) => string
+  trades: Trade[]
+  topicsDone: number
+  topicsTotal: number
+}) {
   const edit = useEditor()
   if (!trades.length) {
     return (
       <Card>
-        <Empty title="Сделок пока нет" hint="Добавьте первую сделку — статистика, кривая баланса и разбор по стратегиям появятся автоматически" action={<Button variant="primary" icon={Plus} onClick={() => edit('trades')}>Добавить сделку</Button>} />
+        <Empty
+          title="Сделок пока нет"
+          hint="Добавьте первую сделку — статистика, кривая баланса и разбор по стратегиям появятся автоматически"
+          action={
+            <Button variant="primary" icon={Plus} onClick={() => edit('trades')}>
+              Добавить сделку
+            </Button>
+          }
+        />
       </Card>
     )
   }
@@ -95,10 +137,27 @@ function Overview({ s, start, cur, m, trades, topicsDone, topicsTotal }: { s: Re
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Баланс" value={m(s.balance)} sub={start ? `старт ${m(start)} · ${s.balance >= start ? '+' : ''}${num(((s.balance - start) / start) * 100, 1)}%` : 'задайте начальный баланс в настройках'} />
-        <Stat label="Прибыль / убыток" value={signedMoney(s.totalPnl, cur, 2)} tone={s.totalPnl >= 0 ? 'good' : 'bad'} sub={`${s.closed} закрытых из ${s.count}`} />
+        <Stat
+          label="Баланс"
+          value={m(s.balance)}
+          sub={
+            start
+              ? `старт ${m(start)} · ${s.balance >= start ? '+' : ''}${num(((s.balance - start) / start) * 100, 1)}%`
+              : 'задайте начальный баланс в настройках'
+          }
+        />
+        <Stat
+          label="Прибыль / убыток"
+          value={signedMoney(s.totalPnl, cur, 2)}
+          tone={s.totalPnl >= 0 ? 'good' : 'bad'}
+          sub={`${s.closed} закрытых из ${s.count}`}
+        />
         <Stat label="Win Rate" value={pct(s.winRate, 1)} sub={`${s.wins} прибыльных · ${s.losses} убыточных`} />
-        <Stat label="Profit Factor" value={Number.isFinite(s.profitFactor) ? num(s.profitFactor, 2) : '∞'} sub={`мат. ожидание ${signedMoney(s.expectancy, cur, 2)}`} />
+        <Stat
+          label="Profit Factor"
+          value={Number.isFinite(s.profitFactor) ? num(s.profitFactor, 2) : '∞'}
+          sub={`мат. ожидание ${signedMoney(s.expectancy, cur, 2)}`}
+        />
         <Stat label="Средняя прибыль" value={m(s.avgWin)} tone="good" sub={`лучшая ${m(s.bestTrade)}`} />
         <Stat label="Средний убыток" value={m(s.avgLoss)} tone="bad" sub={`худшая ${m(s.worstTrade)}`} />
         <Stat label="Макс. просадка" value={m(-s.maxDrawdown)} sub={pct(s.maxDrawdownPct, 1) + ' от пика'} tone={s.maxDrawdown ? 'bad' : null} />
@@ -120,7 +179,14 @@ function Overview({ s, start, cur, m, trades, topicsDone, topicsTotal }: { s: Re
             </div>
             <Progress value={topicsTotal ? topicsDone / topicsTotal : 0} className="mt-2" />
             <div className="mt-6 text-[12.5px] font-medium text-fg-2">Результат по месяцам</div>
-            <BarsChart data={months.slice(-6)} x="month" bars={[{ key: 'pnl', name: 'P&L', color: 'var(--s1)' }]} fmt={(v) => signedMoney(v, cur, 2)} height={150} signed />
+            <BarsChart
+              data={months.slice(-6)}
+              x="month"
+              bars={[{ key: 'pnl', name: 'P&L', color: 'var(--s1)' }]}
+              fmt={(v) => signedMoney(v, cur, 2)}
+              height={150}
+              signed
+            />
           </div>
         </Card>
       </div>
@@ -176,7 +242,16 @@ function Journal({ cur }: { cur: string }) {
     <>
       <div className="mb-3 flex flex-wrap gap-2">
         <SearchInput value={q} onChange={setQ} placeholder="Инструмент, заметки…" />
-        <FilterSelect value={result} onChange={setResult} all="Все результаты" options={[{ value: 'win', label: 'Прибыльные' }, { value: 'loss', label: 'Убыточные' }, { value: 'open', label: 'Открытые' }]} />
+        <FilterSelect
+          value={result}
+          onChange={setResult}
+          all="Все результаты"
+          options={[
+            { value: 'win', label: 'Прибыльные' },
+            { value: 'loss', label: 'Убыточные' },
+            { value: 'open', label: 'Открытые' },
+          ]}
+        />
         <FilterSelect value={strategy} onChange={setStrategy} all="Все стратегии" options={strategies.map((s) => ({ value: s, label: s }))} />
       </div>
       <Card>
@@ -217,7 +292,9 @@ function Journal({ cur }: { cur: string }) {
                     <td className="text-right text-fg-3 tabular">{num(t.take_profit, 5)}</td>
                     <td className="text-right tabular">{t.risk ? money(t.risk, cur, 2) : '—'}</td>
                     <td className="text-right tabular">{p != null && t.risk ? `${num(p / t.risk, 2)}R` : '—'}</td>
-                    <td className={clsx('text-right font-medium whitespace-nowrap tabular', p == null ? 'text-fg-3' : p >= 0 ? 'text-good' : 'text-bad')}>{p == null ? 'открыта' : signedMoney(p, cur, 2)}</td>
+                    <td className={clsx('text-right font-medium whitespace-nowrap tabular', p == null ? 'text-fg-3' : p >= 0 ? 'text-good' : 'text-bad')}>
+                      {p == null ? 'открыта' : signedMoney(p, cur, 2)}
+                    </td>
                     <td className="text-fg-2">{t.strategy || '—'}</td>
                     <td className="max-w-48 truncate text-[12.5px] text-fg-2">{t.mistakes || '—'}</td>
                     <td>{t.screenshot && <Image size={14} className="text-fg-3" aria-label="Есть скриншот" />}</td>
@@ -240,7 +317,15 @@ function Learning({ topics }: { topics: Topic[] }) {
   if (!topics.length) {
     return (
       <Card>
-        <Empty title="План обучения пуст" hint="Добавляйте темы — Risk Management, Price Action, психология — и отмечайте прогресс" action={<Button variant="primary" icon={Plus} onClick={() => edit('trading_topics')}>Добавить тему</Button>} />
+        <Empty
+          title="План обучения пуст"
+          hint="Добавляйте темы — Risk Management, Price Action, психология — и отмечайте прогресс"
+          action={
+            <Button variant="primary" icon={Plus} onClick={() => edit('trading_topics')}>
+              Добавить тему
+            </Button>
+          }
+        />
       </Card>
     )
   }
@@ -266,12 +351,25 @@ function Learning({ topics }: { topics: Topic[] }) {
           const d = list.filter((t) => t.status === 'done').length
           return (
             <Card key={c}>
-              <CardHeader title={c} sub={`${d}/${list.length}`} action={<Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('trading_topics', { category: c === 'Без раздела' ? null : c })}>Тема</Button>} />
+              <CardHeader
+                title={c}
+                sub={`${d}/${list.length}`}
+                action={
+                  <Button size="sm" variant="ghost" icon={Plus} onClick={() => edit('trading_topics', { category: c === 'Без раздела' ? null : c })}>
+                    Тема
+                  </Button>
+                }
+              />
               <div className="divide-y divide-line">
                 {list.map((t) => (
                   <div key={t.id} onClick={() => edit('trading_topics', t)} className="flex cursor-pointer items-center gap-3 px-4 py-2 hover:bg-hover">
                     <span className={clsx('min-w-0 flex-1 truncate text-[13.5px]', t.status === 'done' && 'text-fg-3')}>{t.title}</span>
-                    <StatusPicker value={t.status || 'todo'} options={topicStatuses} label="Статус темы" onChange={(v) => save.mutate({ id: t.id, status: v as Topic['status'] })} />
+                    <StatusPicker
+                      value={t.status || 'todo'}
+                      options={topicStatuses}
+                      label="Статус темы"
+                      onChange={(v) => save.mutate({ id: t.id, status: v as Topic['status'] })}
+                    />
                   </div>
                 ))}
               </div>

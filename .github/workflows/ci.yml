@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, types, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run lint:fsd
+      - run: npm test -w client
+      - run: npm run build
+
+  test:
+    name: Server and end-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dahar
+          POSTGRES_PASSWORD: dahar
+          POSTGRES_DB: dahar_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U dahar"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://dahar:dahar@localhost:5432/dahar_test
+      E2E_DATABASE_URL: postgres://dahar:dahar@localhost:5432/dahar_e2e_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: PGPASSWORD=dahar psql -h localhost -U dahar -d dahar_test -c 'CREATE DATABASE dahar_e2e_test'
+      - run: npm test -w server
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7

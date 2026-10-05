@@ -8,6 +8,12 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    rollupOptions: {
+      // tg.html — мини-приложение Telegram: своя лёгкая страница, общий код с основным приложением
+      input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), tg: fileURLToPath(new URL('./tg.html', import.meta.url)) },
+    },
+  },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:3001' },

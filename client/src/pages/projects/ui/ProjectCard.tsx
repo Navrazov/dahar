@@ -15,7 +15,10 @@ export function ProjectCard({ p }: { p: Project }) {
   const left = daysLeft(p.deadline)
   const late = left != null && left < 0 && p.status !== 'done'
 
-  const meta = [`${open} ${plural(open, 'открытая задача', 'открытые задачи', 'открытых задач')}`, goalCount ? `${goalCount} ${plural(goalCount, 'цель', 'цели', 'целей')}` : null].filter(Boolean)
+  const meta = [
+    `${open} ${plural(open, 'открытая задача', 'открытые задачи', 'открытых задач')}`,
+    goalCount ? `${goalCount} ${plural(goalCount, 'цель', 'цели', 'целей')}` : null,
+  ].filter(Boolean)
 
   return (
     <Link to={`/projects/${p.id}`} className="group block">

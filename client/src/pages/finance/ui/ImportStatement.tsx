@@ -6,9 +6,10 @@ import { api, useList, useSettings, type StatementPreview, type StatementRow } f
 import { fmtDate, money, plural } from '@/shared/lib'
 import { Button, Empty, FieldLabel, Modal, Select, Spinner } from '@/shared/ui'
 
-const banks = { tbank: 'Т-Банк', sber: 'Сбер' }
+const banks: Record<StatementPreview['bank'], string> = { tbank: 'Т-Банк', sber: 'Сбер', csv: 'CSV' }
 
-const bankNames = { tbank: /т-?банк|тинькофф|tinkoff|tbank/i, sber: /сбер|sber/i }
+/** По названию счёта узнаём, подходит ли он к выписке. Для CSV другого банка подсказки нет. */
+const bankNames: Record<StatementPreview['bank'], RegExp | null> = { tbank: /т-?банк|тинькофф|tinkoff|tbank/i, sber: /сбер|sber/i, csv: null }
 
 const readFile = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -47,7 +48,14 @@ function ImportStatement({ onClose }: { onClose: () => void }) {
   }
 
   return parsed ? (
-    <Review key={parsed.preview.account_id} preview={parsed.preview} switching={busy} onSwitch={switchAccount} onBack={() => setParsed(null)} onClose={onClose} />
+    <Review
+      key={parsed.preview.account_id}
+      preview={parsed.preview}
+      switching={busy}
+      onSwitch={switchAccount}
+      onBack={() => setParsed(null)}
+      onClose={onClose}
+    />
   ) : (
     <Pick onParsed={setParsed} onClose={onClose} />
   )
@@ -111,7 +119,14 @@ function Pick({ onParsed, onClose }: { onParsed: (p: Parsed) => void; onClose: (
             <p>
               <span className="font-medium text-fg">Сбер</span> — PDF. В приложении: карта → «Выписки и справки» → «Выписка по счёту».
             </p>
-            <p className="text-fg-3">Одну и ту же выписку можно загружать сколько угодно раз: уже загруженные операции не задвоятся.</p>
+            <p>
+              <span className="font-medium text-fg">Другой банк</span> — CSV с колонками «Дата», «Сумма» (или «Приход» и «Расход») и «Описание»: Альфа, ВТБ и
+              большинство банков умеют такую выгрузку.
+            </p>
+            <p className="text-fg-3">
+              Одну и ту же выписку можно загружать сколько угодно раз: уже загруженные операции не задвоятся. А ещё выписку можно просто переслать
+              Telegram-боту.
+            </p>
           </div>
         </div>
       )}
@@ -139,7 +154,7 @@ function Review({
   const accounts = useList('accounts').filter((a) => !a.archived)
   const account = accounts.find((a) => a.id === preview.account_id)
   const looksLike = bankNames[preview.bank]
-  const better = account && !looksLike.test(account.name) ? accounts.find((a) => looksLike.test(a.name)) : undefined
+  const better = looksLike && account && !looksLike.test(account.name) ? accounts.find((a) => looksLike.test(a.name)) : undefined
   const txns = useList('transactions')
   const budgets = useList('budgets')
   const [rows, setRows] = useState<Draft[]>(() => preview.rows.map((r) => ({ ...r, on: !r.duplicate, edited: r.category })))
@@ -147,7 +162,10 @@ function Review({
   const [busy, setBusy] = useState(false)
 
   const categories = useMemo(
-    () => [...new Set([...txns.map((t) => t.category), ...budgets.map((b) => b.category), ...preview.rows.map((r) => r.category)].filter(Boolean))].sort() as string[],
+    () =>
+      [
+        ...new Set([...txns.map((t) => t.category), ...budgets.map((b) => b.category), ...preview.rows.map((r) => r.category)].filter(Boolean)),
+      ].sort() as string[],
     [txns, budgets, preview.rows],
   )
   const dupes = rows.filter((r) => r.duplicate).length
@@ -194,8 +212,8 @@ function Review({
         <>
           {rows.length} {plural(rows.length, 'операция', 'операции', 'операций')}
           {dupes > 0 && `, ${dupes} уже ${plural(dupes, 'загружена', 'загружены', 'загружены')}`}
-          {transfers > 0 && `, ${transfers} ${plural(transfers, 'похожа', 'похожи', 'похожи')} на перевод между вашими счетами`}
-          . Категорию можно поправить: в следующий раз она подставится сама.
+          {transfers > 0 && `, ${transfers} ${plural(transfers, 'похожа', 'похожи', 'похожи')} на перевод между вашими счетами`}. Категорию можно поправить: в
+          следующий раз она подставится сама.
         </>
       }
       footer={
@@ -259,7 +277,10 @@ function Review({
               <div className="min-w-0">
                 <div className="truncate">{r.description || r.bank_category || '—'}</div>
                 <div className="truncate text-[12px] text-fg-3">
-                  <span className="sm:hidden">{fmtDate(r.date, 'd MMM')}{r.description && r.bank_category ? ' · ' : ''}</span>
+                  <span className="sm:hidden">
+                    {fmtDate(r.date, 'd MMM')}
+                    {r.description && r.bank_category ? ' · ' : ''}
+                  </span>
                   {r.description && r.bank_category}
                 </div>
               </div>
@@ -280,7 +301,12 @@ function Review({
                   />
                 )}
               </div>
-              <span className={clsx('col-start-3 row-start-1 text-right font-medium whitespace-nowrap tabular sm:col-auto sm:row-auto', r.kind === 'income' && 'text-good')}>
+              <span
+                className={clsx(
+                  'col-start-3 row-start-1 text-right font-medium whitespace-nowrap tabular sm:col-auto sm:row-auto',
+                  r.kind === 'income' && 'text-good',
+                )}
+              >
                 {r.kind === 'income' ? '+' : '−'}
                 {money(r.amount, cur, r.amount % 1 ? 2 : 0)}
               </span>
