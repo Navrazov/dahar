@@ -1,3 +1,4 @@
+import { parseChecklist, serializeChecklist } from '@dahar/shared'
 import clsx from 'clsx'
 import { Link } from 'react-router-dom'
 import { Flag, Handshake, Repeat, Star } from 'lucide-react'
@@ -14,6 +15,7 @@ export function TaskRow({ task, hideProject }: { task: Task; hideProject?: boole
   const partners = byId(useList('partners', !!task.partner_id))
   const project = task.project_id ? projects.get(task.project_id) : null
   const partner = task.partner_id ? partners.get(task.partner_id) : null
+  const checklist = parseChecklist(task.checklist)
   const done = task.status === 'done'
   const left = daysLeft(task.due_date)
   const overdue = !done && left != null && left < 0
@@ -38,13 +40,48 @@ export function TaskRow({ task, hideProject }: { task: Task; hideProject?: boole
       <Checkbox checked={done} label={done ? 'Вернуть в работу' : 'Выполнить'} onChange={() => save.mutate({ id: task.id, status: done ? 'todo' : 'done' })} />
       <div className="min-w-0 flex-1">
         <div className={clsx('flex items-center gap-1.5 text-[14px]', done && 'text-fg-3 line-through decoration-fg-3/60')}>
-          <span className="truncate">{task.title}</span>
+          <button
+            type="button"
+            className="truncate text-left"
+            onClick={(event) => {
+              event.stopPropagation()
+              edit('tasks', task)
+            }}
+          >
+            {task.title}
+          </button>
           {task.repeat && (
             <Repeat size={12} className="shrink-0 text-fg-3" aria-label={label(repeatOptions, task.repeat)}>
               <title>{label(repeatOptions, task.repeat)}</title>
             </Repeat>
           )}
         </div>
+        {task.estimate_minutes && <span className="text-xs text-fg-3">{task.estimate_minutes} мин.</span>}
+        {checklist.length > 0 && (
+          <details onClick={(event) => event.stopPropagation()} className="mt-1 text-xs text-fg-2">
+            <summary className="cursor-pointer">
+              Шаги: {checklist.filter((item) => item.done).length}/{checklist.length}
+            </summary>
+            <div className="mt-2 space-y-2">
+              {checklist.map((item, index) => (
+                <label key={index} className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    disabled={save.isPending}
+                    onChange={() =>
+                      save.mutate({
+                        id: task.id,
+                        checklist: serializeChecklist(checklist.map((entry, i) => (i === index ? { ...entry, done: !entry.done } : entry))),
+                      })
+                    }
+                  />
+                  <span className={item.done ? 'line-through' : ''}>{item.text}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
         {(showProject || partner) && (
           <div className="mt-0.5 flex min-w-0 items-center gap-2.5 text-[12px] text-fg-3">
             {showProject && (

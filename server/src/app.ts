@@ -1,5 +1,8 @@
+import { miniappRoutes } from './modules/miniapp/miniapp.routes.ts'
+import { query } from './db/pool.ts'
 import { activationRoutes } from './modules/activation/activation.ts'
 import { calendarRoutes } from './modules/calendar/calendar.routes.ts'
+import { subscriptionRoutes } from './modules/subscription/subscription.routes.ts'
 import express from 'express'
 import { goalValueRoutes } from './modules/goals/goals.routes.ts'
 import { historyRoutes } from './modules/history/history.routes.ts'
@@ -36,6 +39,14 @@ export function createApp(opts: AppOptions = {}) {
 
   const api = express.Router()
   api.use(jsonOnly)
+  api.get('/ready', async (_req, res) => {
+    try {
+      await query('SELECT 1')
+      res.json({ ok: true })
+    } catch {
+      res.status(503).json({ ok: false })
+    }
+  })
   api.get('/health', (_req, res) => res.json({ ok: true }))
   api.use('/admin', adminRoutes())
 
@@ -45,6 +56,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use(webAppRoutes())
 
   api.use(requireUser)
+  api.use('/mini', miniappRoutes())
   api.use('/telegram', telegramRoutes())
   api.use('/files', filesRoutes())
   api.use('/calendar', calendarRoutes())
@@ -56,6 +68,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/goal-values', goalValueRoutes())
   api.use('/search', searchRoutes())
   api.use('/push', pushRoutes())
+  api.use('/subscription', subscriptionRoutes())
   api.use('/insights', insightsRoutes(opts.generateInsight))
   api.use(backupRoutes())
   api.use(recordsRoutes())

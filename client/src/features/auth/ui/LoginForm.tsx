@@ -1,12 +1,19 @@
 import { useState, type FormEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff } from 'lucide-react'
-import { api, type User } from '@/shared/api'
+import { api, request, type User } from '@/shared/api'
 import { Button, FieldLabel, Input, Logo } from '@/shared/ui'
 import { signInLocally } from '@/entities/session'
 
 export function LoginForm() {
   const qc = useQueryClient()
+  const registration = useQuery({
+    queryKey: ['registration-config'],
+    queryFn: () => request<{ registration: boolean; terms_url: string | null; privacy_url: string | null }>('/api/auth/config'),
+    meta: { persist: false },
+  })
+  const [register, setRegister] = useState(false)
+  const [accepted, setAccepted] = useState(false)
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
@@ -33,7 +40,9 @@ export function LoginForm() {
     e.preventDefault()
     if (!login || !password) return setError('Введите логин и пароль')
     run(async () => {
-      const res = await api.login(login, password)
+      const res = register
+        ? await request<{ user: User }>('/api/auth/register', { method: 'POST', body: JSON.stringify({ login, password, accepted_terms: accepted }) })
+        : await api.login(login, password)
       if ('twoFactor' in res) {
         setTicket(res.ticket)
         setCode('')
@@ -74,6 +83,22 @@ export function LoginForm() {
               className="h-10 text-center text-[18px] tracking-[0.3em] tabular"
             />
           </FieldLabel>
+          {register && (
+            <label className="flex gap-2 text-xs text-fg-2">
+              <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />{' '}
+              <span>
+                Принимаю{' '}
+                <a className="underline" href={registration.data?.terms_url || undefined} target="_blank" rel="noreferrer">
+                  условия
+                </a>{' '}
+                и{' '}
+                <a className="underline" href={registration.data?.privacy_url || undefined} target="_blank" rel="noreferrer">
+                  политику конфиденциальности
+                </a>
+                .
+              </span>
+            </label>
+          )}
           {error && <p className="animate-[fade-in_200ms_ease-out] text-[13px] text-bad">{error}</p>}
           <Button type="submit" variant="primary" loading={busy} className="h-10 w-full">
             {busy ? 'Проверяем…' : 'Подтвердить'}
@@ -89,8 +114,10 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="w-full max-w-[340px]">
       <Logo className="mb-10" />
-      <h1 className="text-[24px] font-semibold tracking-[-0.025em]">Вход</h1>
-      <p className="mt-1.5 mb-7 text-[14px] text-fg-2">Аккаунт выдаёт владелец сервиса, открытой регистрации нет.</p>
+      <h1 className="text-[24px] font-semibold tracking-[-0.025em]">{register ? 'Создать аккаунт' : 'Вход'}</h1>
+      <p className="mt-1.5 mb-7 text-[14px] text-fg-2">
+        {registration.data?.registration ? '14 дней для знакомства с Dahar, без банковской карты.' : 'Закрытый пилот: аккаунт выдаёт владелец сервиса.'}
+      </p>
       <div className="space-y-4">
         <FieldLabel label="Логин">
           <Input value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" autoCapitalize="none" autoFocus className="h-10" />
@@ -101,7 +128,7 @@ export function LoginForm() {
               type={show ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete={register ? 'new-password' : 'current-password'}
               className="h-10 pr-10"
             />
             <button
@@ -114,10 +141,42 @@ export function LoginForm() {
             </button>
           </div>
         </FieldLabel>
+        {register && (
+          <label className="flex gap-2 text-xs text-fg-2">
+            <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />{' '}
+            <span>
+              Принимаю{' '}
+              <a className="underline" href={registration.data?.terms_url || undefined} target="_blank" rel="noreferrer">
+                условия
+              </a>{' '}
+              и{' '}
+              <a className="underline" href={registration.data?.privacy_url || undefined} target="_blank" rel="noreferrer">
+                политику конфиденциальности
+              </a>
+              .
+            </span>
+          </label>
+        )}
         {error && <p className="animate-[fade-in_200ms_ease-out] text-[13px] text-bad">{error}</p>}
-        <Button type="submit" variant="primary" loading={busy} className="h-10 w-full">
-          {busy ? 'Входим…' : 'Войти'}
+        <Button type="submit" variant="primary" loading={busy} disabled={register && !accepted} className="h-10 w-full">
+          {busy ? 'Подождите…' : register ? 'Начать пробный период' : 'Войти'}
         </Button>
+        {registration.data?.registration && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => {
+              setRegister(!register)
+              setError('')
+            }}
+          >
+            {register ? 'Уже есть аккаунт? Войти' : 'Создать аккаунт'}
+          </Button>
+        )}
+        <a href="/welcome" className="block text-center text-xs text-fg-3 underline">
+          Как работает Dahar
+        </a>
       </div>
     </form>
   )

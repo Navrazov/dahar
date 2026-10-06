@@ -1,5 +1,24 @@
 import { request } from './http'
-import type { Admin, AdminLoginStep, AuditPage, ErrorsPage, Operations, Overview, Retention, SystemInfo, UserDetail, UserRow, UsersPage } from './types'
+import type {
+  AiRunsPage,
+  DeliveryRow,
+  Page,
+  PaymentsPage,
+  ProductMetrics,
+  SubscriptionsPage,
+  TelegramPage,
+  Admin,
+  AdminLoginStep,
+  AuditPage,
+  ErrorsPage,
+  Operations,
+  Overview,
+  Retention,
+  SystemInfo,
+  UserDetail,
+  UserRow,
+  UsersPage,
+} from './types'
 
 const search = (params: Record<string, string | number>) => new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
 
@@ -19,6 +38,12 @@ export const api = {
   endSessions: (id: number) => request<{ ended: number }>(`/users/${id}/sessions`, { method: 'DELETE' }),
   deleteUser: (id: number, confirm: string) => request(`/users/${id}`, { method: 'DELETE', json: { confirm } }),
 
+  subscriptions: (params: Record<string, string | number>, signal?: AbortSignal) => request<SubscriptionsPage>(`/subscriptions?${search(params)}`, { signal }),
+  payments: (params: Record<string, string | number>, signal?: AbortSignal) => request<PaymentsPage>(`/payments?${search(params)}`, { signal }),
+  telegram: (params: Record<string, string | number>, signal?: AbortSignal) => request<TelegramPage>(`/telegram?${search(params)}`, { signal }),
+  deliveries: (params: Record<string, string | number>, signal?: AbortSignal) => request<Page<DeliveryRow>>(`/deliveries?${search(params)}`, { signal }),
+  aiRuns: (params: Record<string, string | number>, signal?: AbortSignal) => request<AiRunsPage>(`/ai-runs?${search(params)}`, { signal }),
+  productMetrics: () => request<ProductMetrics>('/product-metrics'),
   retention: () => request<Retention>('/retention'),
   system: () => request<SystemInfo>('/system'),
   operations: () => request<Operations>('/operations'),

@@ -1,6 +1,23 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
-import { Activity, Bug, LayoutDashboard, LogOut, ScrollText, Server, Users, Sun, Moon, Monitor, type LucideIcon } from 'lucide-react'
+import {
+  CreditCard,
+  BadgeCheck,
+  Send,
+  Bell,
+  Sparkles,
+  Activity,
+  Bug,
+  LayoutDashboard,
+  LogOut,
+  ScrollText,
+  Server,
+  Users,
+  Sun,
+  Moon,
+  Monitor,
+  type LucideIcon,
+} from 'lucide-react'
 import { Suspense } from 'react'
 import { Logo, PageSkeleton } from '@/shared/ui'
 import { ago, useTheme, type Theme } from '@/shared/lib'
@@ -10,6 +27,11 @@ import { useLogout } from '@/features/auth'
 const nav: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard, end: true },
   { to: '/users', label: 'Пользователи', icon: Users },
+  { to: '/subscriptions', label: 'Подписки', icon: BadgeCheck },
+  { to: '/payments', label: 'Платежи', icon: CreditCard },
+  { to: '/telegram', label: 'Telegram', icon: Send },
+  { to: '/deliveries', label: 'Доставки', icon: Bell },
+  { to: '/ai', label: 'AI и расходы', icon: Sparkles },
   { to: '/activity', label: 'Активность', icon: Activity },
   { to: '/errors', label: 'Ошибки', icon: Bug },
   { to: '/system', label: 'Система', icon: Server },

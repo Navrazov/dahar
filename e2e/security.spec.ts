@@ -27,7 +27,7 @@ test('user turns on 2FA and then needs a code to sign in', async ({ page }) => {
   await expect(dialog).toBeVisible()
   await expect(dialog.getByText(/^[a-z2-7]{4}-[a-z2-7]{4}$/)).toHaveCount(10)
   await dialog.getByRole('button', { name: 'Я сохранил коды' }).click()
-  await expect(page.getByText('Включена')).toBeVisible()
+  await expect(page.getByText('Включена', { exact: true })).toBeVisible()
 
   await page.context().clearCookies()
   await page.goto('/')

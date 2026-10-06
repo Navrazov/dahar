@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { Onboarding } from './Onboarding'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
@@ -78,7 +79,7 @@ export function DashboardPage() {
 
   const today = todayStr()
   const month = today.slice(0, 7)
-  const weekAhead = ymd(addDays(new Date(), 7))
+  const weekAhead = ymd(addDays(accountNow(), 7))
   const todays = tasks.filter((t) => t.status !== 'done' && t.due_date && t.due_date <= today)
   const doneToday = tasks.filter((t) => t.status === 'done' && t.completed_at?.slice(0, 10) === today)
   const overdue = todays.filter((t) => t.due_date! < today).length
@@ -87,12 +88,12 @@ export function DashboardPage() {
     return (start >= today && start <= weekAhead) || (e.end && start < today && e.end.slice(0, 10) >= today)
   })
   const eventsToday = upcoming.filter((e) => e.start.slice(0, 10) === today).length
-  const dueHabits = habits.filter((h) => h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, new Date()))
+  const dueHabits = habits.filter((h) => h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, accountNow()))
   const habitsDone = dueHabits.filter((h) => habitStats(h, logs).doneToday).length
 
   const active = projects.filter((p) => p.status === 'active' || (p.pinned && p.status !== 'archived'))
   const activeGoals = goals.filter((g) => g.status === 'active').sort((a, b) => (a.deadline || '9').localeCompare(b.deadline || '9'))
-  const soon = ymd(addDays(new Date(), 3))
+  const soon = ymd(addDays(accountNow(), 3))
   const partnerActions = partners
     .filter((p) => p.next_action && p.next_action_date && p.next_action_date <= soon)
     .sort((a, b) => a.next_action_date!.localeCompare(b.next_action_date!))
@@ -176,7 +177,7 @@ export function DashboardPage() {
   return (
     <>
       <header className="mb-7">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.03em] first-letter:uppercase">{format(new Date(), 'EEEE, d MMMM')}</h1>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.03em] first-letter:uppercase">{format(accountNow(), 'EEEE, d MMMM')}</h1>
         <p className="mt-1.5 text-[14px] text-fg-2 first-letter:uppercase">
           {settings.user_name ? `${settings.user_name}, ` : ''}
           {summaryLine.join(' · ')}

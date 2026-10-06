@@ -49,7 +49,9 @@ export async function sendReminders(out: TelegramOut = telegramOut, at = new Dat
               ).rowCount
             )
               return false
-            return (await push.sendToUser(u.id, { title: t.title, body: `Напоминание · ${t.due_time}`, url: '/tasks', tag: `task-${t.id}`, taskId: t.id })) > 0
+            return (
+              (await push.sendToUser(u.id, { title: t.title, body: `Напоминание · ${t.due_time}`, url: '/tasks', tag: `task-${t.id}`, taskId: t.id }, key)) > 0
+            )
           }),
         )
       if (receipts.length && receipts.every(Boolean)) {

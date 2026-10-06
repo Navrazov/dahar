@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { eachDayOfInterval, getISODay, startOfISOWeek, subDays } from 'date-fns'
 import type { Habit, HabitLog } from '@/shared/api'
 import { label, parse, sum, todayStr, WEEKDAY_SHORT, ymd } from '@/shared/lib'
@@ -38,7 +39,7 @@ function weeklyStats(h: Habit, days: Date[], ok: (d: Date) => boolean, doneToday
     weeks.set(k, (weeks.get(k) || 0) + (ok(d) ? 1 : 0))
   }
   const entries = [...weeks.entries()].sort(([a], [b]) => a.localeCompare(b))
-  const thisWeek = ymd(startOfISOWeek(new Date()))
+  const thisWeek = ymd(startOfISOWeek(accountNow()))
   const success = (n: number) => n >= target
 
   let streak = 0
@@ -68,8 +69,8 @@ function weeklyStats(h: Habit, days: Date[], ok: (d: Date) => boolean, doneToday
 
 export function habitStats(h: Habit, logs: HabitLog[]): HabitStats {
   const mine = new Map(logs.filter((l) => l.habit_id === h.id).map((l) => [l.date, l.status]))
-  const start = parse(habitStart(h)) ?? new Date()
-  const today = new Date()
+  const start = parse(habitStart(h)) ?? accountNow()
+  const today = accountNow()
   const days = start > today ? [] : eachDayOfInterval({ start, end: today })
   const quit = h.kind === 'quit'
   const ok = (d: Date) => mine.get(ymd(d)) === 'done'

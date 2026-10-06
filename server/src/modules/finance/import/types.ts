@@ -4,6 +4,7 @@ export interface ParsedRow {
   time: string
   kind: 'income' | 'expense'
   amount: number
+  currency?: string
   description: string
   bank_category: string
   mcc: string

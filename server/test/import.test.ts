@@ -42,6 +42,7 @@ after(async () => {
 
 const save = (account, rows, edits = {}) =>
   user.post('/api/finance/import', {
+    confirm_currency: true,
     account_id: account.id,
     rows: rows.filter((r) => !r.duplicate).map((r) => ({ ...r, match_id: r.match?.id ?? null, ...edits[r.description] })),
   })
@@ -115,7 +116,7 @@ test('import is scoped to the owner', async () => {
   const own = (await other.post('/api/accounts', { name: 'Карта' })).body
   const preview = (await other.post('/api/finance/import/preview', { account_id: own.id, data })).body
   assert.ok(preview.rows.every((r) => !r.duplicate && !r.match))
-  const row = { ...preview.rows.find((r) => r.kind === 'income'), kind: 'expense', match_id: mine.id }
+  const row = { ...preview.rows.find((r) => r.kind === 'expense'), match_id: mine.id }
   assert.deepEqual((await other.post('/api/finance/import', { account_id: own.id, rows: [row] })).body, { created: 1, transfers: 0, skipped: 0 })
   assert.equal((await user.get(`/api/transactions/${mine.id}`)).body.kind, 'expense')
 })

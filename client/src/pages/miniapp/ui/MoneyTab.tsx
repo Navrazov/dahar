@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { subDays } from 'date-fns'
@@ -37,7 +38,7 @@ export function MoneyTab() {
   const cur = settings.currency || '₽'
   const today = todayStr()
   const accounts = useList('accounts')
-  const recent = useListWhere('transactions', { from: ymd(subDays(new Date(), 90)), to: today })
+  const recent = useListWhere('transactions', { from: ymd(subDays(accountNow(), 90)), to: today })
   const summary = useFinanceSummary(today.slice(0, 7))
   const save = useSave('transactions')
 

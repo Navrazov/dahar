@@ -1,3 +1,5 @@
+import { query } from '../../db/pool.ts'
+import { trackBehavior } from '../activation/activation.ts'
 import { operation } from '../history/operation.ts'
 import { Router } from 'express'
 import { badRequest, notFound } from '../../lib/errors.ts'
@@ -15,6 +17,9 @@ export function habitsRoutes() {
     await operation(req, res, 'Отметка привычки', async (c) => {
       const habit = await getRow('habits', habit_id, req.user.id, c, true)
       if (!habit) throw notFound('Привычка не найдена')
+      const previous = (await query('SELECT status FROM habit_logs WHERE user_id=$1 AND habit_id=$2 AND date=$3', [req.user.id, habit.id, date], c)).rows[0]
+        ?.status
+      if (status && status !== previous) await trackBehavior(req.user.id, 'habit_logged', c)
       await setHabitLog(req.user.id, habit.id, date, status, c)
       return { ok: true }
     })

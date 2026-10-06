@@ -4,7 +4,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { Toaster, toast } from 'sonner'
 import { ApiError } from '@/shared/api'
-import { idbAvailable, kv } from '@/shared/lib'
+import { idbAvailable, kv, setAccountTimezone } from '@/shared/lib'
 import { SyncStatus } from './SyncStatus'
 import { OfflineSync } from './OfflineSync'
 
@@ -42,9 +42,28 @@ export const persister = createAsyncStoragePersister({
   throttleTime: 2000,
   storage: idbAvailable()
     ? {
-        getItem: safe((k: string) => kv.get<string>(k).then((v) => v ?? null), null),
-        setItem: safe((k: string, v: string) => kv.set(k, v), undefined),
-        removeItem: safe((k: string) => kv.del(k), undefined),
+        getItem: safe(async () => {
+          const owner = await kv.get<number>('query-owner')
+          return (await kv.get<string>(owner ? `query-cache:${owner}` : 'query-cache')) ?? null
+        }, null),
+        setItem: safe(async (_k: string, value: string) => {
+          const snapshot = JSON.parse(value)
+          const owner = snapshot.clientState.queries.find((q: { queryKey: unknown[] }) => q.queryKey[0] === 'me')?.state.data?.id
+          if (!Number.isInteger(owner)) {
+            await kv.del('query-owner')
+            await kv.del('query-cache')
+            return
+          }
+          await kv.set(`query-cache:${owner}`, value)
+          await kv.set('query-owner', owner)
+          await kv.del('query-cache')
+        }, undefined),
+        removeItem: safe(async () => {
+          const owner = await kv.get<number>('query-owner')
+          if (owner) await kv.del(`query-cache:${owner}`)
+          await kv.del('query-owner')
+          await kv.del('query-cache')
+        }, undefined),
       }
     : undefined,
 })
@@ -53,6 +72,9 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   return (
     <PersistQueryClientProvider
       client={queryClient}
+      onSuccess={() => {
+        setAccountTimezone(queryClient.getQueryData<{ timezone?: string }>(['settings'])?.timezone)
+      }}
       persistOptions={{
         persister,
         maxAge: WEEK,

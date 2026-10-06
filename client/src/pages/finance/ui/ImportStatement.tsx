@@ -158,6 +158,8 @@ function Review({
   const txns = useList('transactions')
   const budgets = useList('budgets')
   const [rows, setRows] = useState<Draft[]>(() => preview.rows.map((r) => ({ ...r, on: !r.duplicate, edited: r.category })))
+  const [currencyConfirmed, setCurrencyConfirmed] = useState(false)
+  const currencyUnknown = rows.some((row) => !row.currency)
   const [showDupes, setShowDupes] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -181,6 +183,8 @@ function Review({
         preview.account_id,
         chosen.map((r) => ({
           key: r.key,
+          currency: r.currency,
+          proof: r.proof,
           date: r.date,
           kind: r.kind,
           amount: r.amount,
@@ -189,6 +193,7 @@ function Review({
           match_id: r.match?.id ?? null,
           learn: r.edited.trim() !== r.category,
         })),
+        currencyConfirmed,
       )
       await qc.invalidateQueries()
       const parts = [`${res.created} ${plural(res.created, 'операция', 'операции', 'операций')}`]
@@ -222,12 +227,20 @@ function Review({
             Другой файл
           </Button>
           <div className="flex-1" />
-          <Button variant="primary" loading={busy} disabled={!chosen.length} onClick={save}>
+          <Button variant="primary" loading={busy} disabled={!chosen.length || (currencyUnknown && !currencyConfirmed)} onClick={save}>
             {chosen.length ? `Сохранить ${chosen.length} ${plural(chosen.length, 'операцию', 'операции', 'операций')}` : 'Нечего сохранять'}
           </Button>
         </>
       }
     >
+      {currencyUnknown ? (
+        <label className="mb-4 flex items-start gap-2 rounded-lg bg-warn-soft p-3 text-sm">
+          <input type="checkbox" checked={currencyConfirmed} onChange={(event) => setCurrencyConfirmed(event.target.checked)} />
+          <span>В файле не указана валюта. Подтверждаю, что все суммы указаны в валюте учёта {cur}. Без этого операции не сохранятся.</span>
+        </label>
+      ) : (
+        <p className="mb-3 text-xs text-fg-3">Валюта выписки: {[...new Set(rows.map((row) => row.currency))].join(', ')}</p>
+      )}
       {better && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[8px] bg-warn-soft px-3.5 py-2.5 text-[13px]">
           <span>

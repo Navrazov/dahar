@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import type { Trade } from '@/shared/api'
@@ -45,7 +46,7 @@ export function tradingStats(trades: Trade[], startBalance: number): TradingStat
     const dd = peak - bal
     if (dd > maxDd) maxDd = dd
     if (peak > 0) maxDdPct = Math.max(maxDdPct, dd / peak)
-    equity.push({ date: t.date, label: format(parse(t.date) ?? new Date(), 'd MMM', { locale: ru }), balance: bal })
+    equity.push({ date: t.date, label: format(parse(t.date) ?? accountNow(), 'd MMM', { locale: ru }), balance: bal })
   })
 
   return {

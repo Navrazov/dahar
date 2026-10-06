@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useCallback, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, invalidateCollection, useList, useSettings, type CollectionName } from '@/shared/api'
@@ -15,7 +15,7 @@ interface State {
   onSaved?: (row: any) => void
 }
 
-export function EditorProvider({ children }: { children: ReactNode }) {
+export function EditorProvider({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
   const [state, setState] = useState<State | null>(null)
   const [visible, setVisible] = useState(false)
   const unmount = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -39,22 +39,33 @@ export function EditorProvider({ children }: { children: ReactNode }) {
   return (
     <EditorContext.Provider value={open}>
       {children}
-      {state && <EditorModal key={`${state.table}-${state.values.id ?? 'new'}`} state={state} open={visible} onClose={close} />}
+      {state && <EditorModal key={`${state.table}-${state.values.id ?? 'new'}`} state={state} open={visible} onClose={close} compact={compact} />}
     </EditorContext.Provider>
   )
 }
 
-function EditorModal({ state, open, onClose }: { state: State; open: boolean; onClose: () => void }) {
+function EditorModal({ state, open, onClose, compact }: { state: State; open: boolean; onClose: () => void; compact: boolean }) {
   const cfg = entities[state.table]!
   const qc = useQueryClient()
   const settings = useSettings()
   const products = useList('products', state.table === 'sales')
   const [values, setValues] = useState<Values>(state.values)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [advanced, setAdvanced] = useState(!!state.values.id)
+  const [advanced, setAdvanced] = useState(!compact && !!state.values.id)
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState(false)
   const isEdit = !!values.id
+  const dirty = JSON.stringify(values) !== JSON.stringify(state.values)
+  const requestClose = () => {
+    if (!busy && (!dirty || window.confirm('Закрыть форму и потерять несохранённые изменения?'))) onClose()
+  }
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (dirty) event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   const set = (name: string, v: unknown) => {
     setErrors((e) => ({ ...e, [name]: '' }))
@@ -110,14 +121,14 @@ function EditorModal({ state, open, onClose }: { state: State; open: boolean; on
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title={isEdit ? cfg.title : cfg.newLabel}
       width={cfg.fields.length > 10 ? 680 : 560}
       footer={
         <>
           <div>{isEdit && <ConfirmButton onConfirm={remove} loading={removing} />}</div>
           <div className="flex gap-2">
-            <Button onClick={onClose}>Отмена</Button>
+            <Button onClick={requestClose}>Отмена</Button>
             <Button variant="primary" onClick={save} loading={busy}>
               {isEdit ? 'Сохранить' : 'Создать'}
             </Button>

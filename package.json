@@ -21,7 +21,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run lint:fsd",
     "test:e2e": "npm run build && playwright test",
-    "test:unit": "npm test -w client"
+    "test:unit": "npm test -w client",
+    "smoke": "node scripts/smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { PageHeader } from '@/shared/ui'
+import { Account } from './Account'
 import { Profile } from './Profile'
 import { Password } from './Password'
 import { TwoFactor } from './TwoFactor'
@@ -26,6 +27,7 @@ export function SettingsPage() {
         <BrowserPush />
         <Modules />
         <Data />
+        <Account />
       </div>
     </>
   )

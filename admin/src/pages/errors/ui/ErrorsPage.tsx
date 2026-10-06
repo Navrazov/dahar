@@ -30,6 +30,7 @@ export function ErrorsPage() {
     days = params.get('days') || '30',
     offset = tableOffset(params.get('offset'))
   const search = useDebouncedValue(q)
+  const userId = params.get('user_id') || ''
   const [open, setOpen] = useState<number | null>(null),
     [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false)
@@ -41,8 +42,8 @@ export function ErrorsPage() {
     setOpen(null)
   }
   const query = useQuery({
-    queryKey: ['errors', source, search, days, offset],
-    queryFn: ({ signal }) => api.errors({ source, q: search, days, offset, limit: 50 }, signal),
+    queryKey: ['errors', source, search, days, offset, userId],
+    queryFn: ({ signal }) => api.errors({ source, q: search, days, offset, limit: 50, user_id: userId }, signal),
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   })
@@ -88,6 +89,20 @@ export function ErrorsPage() {
         }
       />
       <QueryToolbar query={query} />
+      {userId && (
+        <div className="mb-3">
+          <Button
+            onClick={() => {
+              const next = new URLSearchParams(params)
+              next.delete('user_id')
+              next.set('offset', '0')
+              setParams(next)
+            }}
+          >
+            Все ошибки (сейчас пользователь ID {userId})
+          </Button>
+        </div>
+      )}
       <MetricStrip
         className="mb-5"
         items={[

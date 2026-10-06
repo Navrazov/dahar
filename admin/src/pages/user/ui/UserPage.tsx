@@ -9,6 +9,7 @@ import { UserActions } from '@/features/manage-user'
 
 export function UserPage() {
   const id = Number(useParams().id)
+  const subscription = useQuery({ queryKey: ['subscriptions', id], queryFn: () => api.subscriptions({ user_id: id }), retry: false })
   const query = useQuery({ queryKey: ['user', id], queryFn: () => api.user(id), retry: false })
 
   const { data: u } = query
@@ -97,25 +98,86 @@ export function UserPage() {
             )}
           </Card>
         </div>
-        <Card className="self-start">
-          <CardHeader title="Профиль" />
-          <KeyValue
-            items={[
-              ['ID', u.id],
-              ['Защита 2FA', <Badge tone={u.two_factor ? 'good' : 'warn'}>{u.two_factor ? 'Включена' : 'Не включена'}</Badge>],
-              ['Напоминания', u.reminders_enabled ? 'Включены' : 'Выключены'],
-              ['Время дайджеста', `${u.digest_hour}:00`],
-              ['Подписки Web Push', u.health.push_subscriptions],
-              ['Резервные версии', u.health.backups],
-              ['Ошибки за 30 дней', u.health.errors30],
-              ['Исчерпаны попытки доставки', u.health.failed_deliveries],
-              ['Создан', dateTime(u.created_at)],
-              ['Часовой пояс', u.timezone ?? '—'],
-              ['Валюта', u.currency ?? '₽'],
-              ['Направления', u.modules.map((m) => moduleLabels[m] ?? m).join(', ') || '—'],
-            ]}
-          />
-        </Card>
+        <div className="space-y-5">
+          <Card>
+            <CardHeader title="Подписка и платежи" />
+            {!subscription.data ? (
+              <QueryState query={subscription} title="Подписка" />
+            ) : (
+              <KeyValue
+                items={[
+                  [
+                    'Статус',
+                    ({ active: 'Активна', trial: 'Пробный период', expired: 'Истекла', pilot: 'Пилот' } as Record<string, string>)[
+                      subscription.data.items[0]?.status
+                    ] || '—',
+                  ],
+                  ['Trial до', dateTime(u.trial_ends_at)],
+                  ['Оплачено до', dateTime(subscription.data.items[0]?.paid_until)],
+                  [
+                    'Платежи',
+                    <Link className="text-accent-text" to={`/payments?user_id=${id}`}>
+                      Открыть журнал →
+                    </Link>,
+                  ],
+                  [
+                    'Подписка',
+                    <Link className="text-accent-text" to={`/subscriptions?user_id=${id}`}>
+                      Подробнее →
+                    </Link>,
+                  ],
+                ]}
+              />
+            )}
+          </Card>
+          <Card>
+            <CardHeader title="Telegram" />
+            <KeyValue
+              items={[
+                ['Подключён', u.telegram ? 'Да' : 'Нет'],
+                ['Telegram ID', u.telegram_chat_id || '—'],
+                ['Последний Mini App', dateTime(u.last_miniapp_at)],
+                [
+                  'Доставки',
+                  <Link className="text-accent-text" to={`/deliveries?user_id=${id}`}>
+                    Открыть журнал →
+                  </Link>,
+                ],
+                [
+                  'Ошибки',
+                  <Link className="text-accent-text" to={`/errors?user_id=${id}`}>
+                    Ошибки пользователя →
+                  </Link>,
+                ],
+                [
+                  'AI',
+                  <Link className="text-accent-text" to={`/ai?user_id=${id}`}>
+                    Генерации →
+                  </Link>,
+                ],
+              ]}
+            />
+          </Card>
+          <Card className="self-start">
+            <CardHeader title="Профиль" />
+            <KeyValue
+              items={[
+                ['ID', u.id],
+                ['Защита 2FA', <Badge tone={u.two_factor ? 'good' : 'warn'}>{u.two_factor ? 'Включена' : 'Не включена'}</Badge>],
+                ['Напоминания', u.reminders_enabled ? 'Включены' : 'Выключены'],
+                ['Время дайджеста', `${u.digest_hour}:00`],
+                ['Подписки Web Push', u.health.push_subscriptions],
+                ['Резервные версии', u.health.backups],
+                ['Ошибки за 30 дней', u.health.errors30],
+                ['Исчерпаны попытки доставки', u.health.failed_deliveries],
+                ['Создан', dateTime(u.created_at)],
+                ['Часовой пояс', u.timezone ?? '—'],
+                ['Валюта', u.currency ?? '₽'],
+                ['Направления', u.modules.map((m) => moduleLabels[m] ?? m).join(', ') || '—'],
+              ]}
+            />
+          </Card>
+        </div>
       </div>
     </div>
   )

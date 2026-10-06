@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { CalendarExchange } from './CalendarExchange'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
@@ -118,7 +119,7 @@ function Chip({ item, onClick }: { item: Item; onClick: () => void }) {
 export function CalendarPage() {
   const edit = useEditor()
   const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'))
-  const [anchor, setAnchor] = useState(new Date())
+  const [anchor, setAnchor] = useState(accountNow())
   const [project, setProject] = useState('')
   const itemsFor = useItems(project)
   const scroller = useRef<HTMLDivElement>(null)
@@ -169,7 +170,7 @@ export function CalendarPage() {
       />
 
       <div className="mb-3 flex items-center gap-2">
-        <Button size="sm" onClick={() => setAnchor(new Date())}>
+        <Button size="sm" onClick={() => setAnchor(accountNow())}>
           Сегодня
         </Button>
         <IconButton icon={ChevronLeft} label="Назад" onClick={() => step(-1)} />
@@ -294,9 +295,9 @@ export function CalendarPage() {
 }
 
 function NowLine() {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState(accountNow())
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000)
+    const t = setInterval(() => setNow(accountNow()), 60_000)
     return () => clearInterval(t)
   }, [])
   const top = ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR

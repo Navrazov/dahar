@@ -83,6 +83,7 @@ export async function restoreBackup(userId: number, backup: Backup, client?: Poo
 
   const run = async (c: PoolClient) => {
     await query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, userId], c)
+    await query('UPDATE users SET dataset_version=dataset_version+1 WHERE id=$1', [userId], c)
     const previous = await exportBackup(userId, c)
     await query('INSERT INTO saved_backups(user_id,data) VALUES($1,$2)', [userId, JSON.stringify(previous)], c)
     await query(

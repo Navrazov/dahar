@@ -1,4 +1,4 @@
-const SHELL = 'shell-v5'
+const SHELL = 'shell-v6'
 const ASSETS = 'assets-v4'
 
 self.addEventListener('install', (e) => {
@@ -20,7 +20,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url)
   if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return
   // мини-приложение Telegram — отдельная страница, в кэш оболочки её класть нельзя
-  if (url.pathname === '/tg' || url.pathname.startsWith('/tg/')) return
+  if (['/tg', '/admin', '/welcome', '/welcome.html', '/guide.html'].some((path) => url.pathname === path || url.pathname.startsWith(path + '/'))) return
 
   if (url.pathname.startsWith('/assets/')) {
     e.respondWith(
@@ -40,10 +40,10 @@ self.addEventListener('fetch', (e) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone()
-          caches.open(SHELL).then((c) => c.put('/', copy))
+          if (res.ok && !res.redirected && res.headers.get('Content-Type')?.includes('text/html')) caches.open(SHELL).then((c) => c.put('/', copy))
           return res
         })
-        .catch(() => caches.match('/')),
+        .catch(() => caches.match('/').then((hit) => hit || Response.error())),
     )
     return
   }

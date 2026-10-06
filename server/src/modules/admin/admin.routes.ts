@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { hashPassword, verifyAgainstNothing, verifyPassword } from '../../lib/crypto.ts'
 import { badRequest, notFound } from '../../lib/errors.ts'
-import { createLimiter } from '../../lib/rate-limit.ts'
+import { createSharedLimiter } from '../../lib/rate-limit.ts'
 import { MIN_PASSWORD } from '../auth/auth.routes.ts'
 import * as twoFactor from '../auth/two-factor.ts'
 import { userSessions } from '../auth/user-sessions.ts'
@@ -12,9 +12,10 @@ import { audit, findAdminById, findAdminByLogin, listAudit, markAdminLogin, setA
 import { adminSessions } from './admin.sessions.ts'
 import { clearErrors, listErrors, listUsers, overview, retention, systemInfo, userDetail } from './admin.stats.ts'
 import { auditPage, operations, usersPage } from './admin.reporting.ts'
+import { aiRunsPage, deliveriesPage, paymentsPage, subscriptionsPage, telegramPage } from './admin.commercial.ts'
 
-const byIp = createLimiter({ max: 5, windowMs: 15 * 60 * 1000 })
-const byLogin = createLimiter({ max: 10, windowMs: 60 * 60 * 1000 })
+const byIp = createSharedLimiter({ scope: 'admin-ip-failed', max: 5, windowMs: 15 * 60 * 1000 })
+const byLogin = createSharedLimiter({ scope: 'admin-login-failed', max: 10, windowMs: 60 * 60 * 1000 })
 
 const validPassword = (p: unknown): p is string => typeof p === 'string' && p.length >= MIN_PASSWORD
 
@@ -35,16 +36,16 @@ function authRoutes() {
       .toLowerCase()
       .slice(0, 64)
     const password = String(req.body?.password || '').slice(0, 256)
-    const wait = byIp.blockedFor(ip) || byLogin.blockedFor(login)
+    const wait = (await byIp.blockedFor(ip)) || (await byLogin.blockedFor(login))
     if (wait) return res.status(429).json({ error: `Слишком много попыток. Попробуйте через ${wait} мин.` })
     const admin = await findAdminByLogin(login)
     const ok = admin ? await verifyPassword(password, admin.password_hash) : await verifyAgainstNothing(password)
     if (!admin || !ok) {
-      byIp.hit(ip)
-      byLogin.hit(login)
+      await byIp.hit(ip)
+      await byLogin.hit(login)
       return res.status(401).json({ error: 'Неверный логин или пароль' })
     }
-    byIp.reset(ip)
+    await byIp.reset(ip)
     // Вход в админку только со вторым фактором. Если приложение ещё не привязано — привязываем прямо сейчас.
     if (admin.totp_secret) return res.json({ twoFactor: true, ticket: await twoFactor.startChallenge('admin', admin.id) })
     const setup = await twoFactor.beginSetup('admins', admin.id, `admin:${admin.login}`)
@@ -172,6 +173,33 @@ export function adminRoutes() {
 
   r.get('/overview', async (_req, res) => res.json(await overview()))
   r.use('/users', usersRoutes())
+  r.get('/subscriptions', async (req, res) => res.json(await subscriptionsPage(req.query)))
+  r.get('/payments', async (req, res) => res.json(await paymentsPage(req.query)))
+  r.get('/telegram', async (req, res) => res.json(await telegramPage(req.query)))
+  r.get('/deliveries', async (req, res) => res.json(await deliveriesPage(req.query)))
+  r.get('/ai-runs', async (req, res) => res.json(await aiRunsPage(req.query)))
+  r.get('/ai-usage', async (_req, res) =>
+    res.json(
+      (
+        await query(
+          "SELECT (created_at AT TIME ZONE 'UTC')::date AS day,count(*)::int AS requests,count(*) FILTER(WHERE status='failed')::int AS failed,sum(input_tokens) AS input_tokens,sum(output_tokens) AS output_tokens,sum(cost_usd) AS known_cost_usd,count(*) FILTER(WHERE cost_usd IS NULL)::int AS unpriced FROM ai_runs WHERE created_at>=now()-interval '30 days' GROUP BY 1 ORDER BY 1 DESC",
+        )
+      ).rows,
+    ),
+  )
+  r.get('/product-metrics', async (_req, res) => {
+    const rows = (
+      await query(
+        `SELECT event,count(DISTINCT user_id)::int AS users,sum(count)::int AS occurrences FROM behavior_daily WHERE day>=(now() AT TIME ZONE 'UTC')::date-29 GROUP BY event ORDER BY event`,
+      )
+    ).rows
+    const core = (
+      await query(
+        `SELECT count(DISTINCT user_id) FILTER(WHERE day=(now() AT TIME ZONE 'UTC')::date)::int AS dau,count(DISTINCT user_id) FILTER(WHERE day>=(now() AT TIME ZONE 'UTC')::date-6)::int AS wau,count(DISTINCT user_id)::int AS mau FROM behavior_daily WHERE day>=(now() AT TIME ZONE 'UTC')::date-29 AND event IN ('task_completed','focus_selected','habit_logged','review_saved')`,
+      )
+    ).rows[0]
+    res.json({ window_days: 30, definition: 'task completion, focus selection, habit mark, review save; calendar UTC', ...core, events: rows })
+  })
   r.get('/retention', async (_req, res) => res.json(await retention()))
   r.get('/system', async (_req, res) => res.json(await systemInfo()))
   r.get('/operations', async (_req, res) => res.json(await operations()))

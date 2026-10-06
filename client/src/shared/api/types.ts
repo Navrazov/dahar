@@ -34,6 +34,7 @@ export type Collections = { [K in TableName]: Row<K> }
 export type CollectionName = keyof Collections
 
 export interface User {
+  dataset_version?: number
   id: number
   login: string
   name: string | null
@@ -93,6 +94,8 @@ export interface FinanceSummary {
 }
 
 export interface StatementRow {
+  currency: string
+  proof: string
   key: string
   date: string
   time: string
@@ -115,4 +118,19 @@ export interface StatementImportResult {
   created: number
   transfers: number
   skipped: number
+}
+
+export interface MiniTaskPage {
+  items: Task[]
+  total: number
+  limit: number
+  offset: number
+  date: string
+}
+export interface MiniToday {
+  date: string
+  focus: { items: Task[]; total: number }
+  today: { items: Task[]; total: number }
+  late: { items: Task[]; total: number }
+  done: { items: Task[]; total: number }
 }

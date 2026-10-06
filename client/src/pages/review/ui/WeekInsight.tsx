@@ -61,7 +61,10 @@ export function WeekInsight({ week }: { week: string }) {
   const q = useQuery({ queryKey: key, queryFn: () => api.insight(week) })
   const run = useMutation({
     mutationFn: () => api.createInsight(week),
-    onSuccess: (insight) => qc.setQueryData(key, { enabled: true, insight }),
+    onSuccess: (insight) => {
+      qc.setQueryData(key, { enabled: true, insight })
+      void qc.invalidateQueries({ queryKey: key })
+    },
     onError: (e) => toast.error((e as Error).message),
   })
 
@@ -82,6 +85,11 @@ export function WeekInsight({ week }: { week: string }) {
         }
       />
       <div className="px-4 pb-4">
+        {q.data?.quota && (
+          <p className="mb-3 text-xs text-fg-3">
+            Осталось AI-разборов в этом месяце: {q.data.quota.remaining} из {q.data.quota.max}. При ошибке месячная квота возвращается.
+          </p>
+        )}
         {!q.data ? (
           <Skeleton className="h-20 rounded-[8px]" />
         ) : run.isPending ? (

@@ -1,3 +1,4 @@
+import { accountNow } from '../lib/date'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { DayPicker } from 'react-day-picker'
@@ -45,7 +46,7 @@ const dayPickerClasses = {
 
 function Calendar({ value, onPick }: { value: string | null | undefined; onPick: (iso: string) => void }) {
   const selected = parse(value) ?? undefined
-  const [month, setMonth] = useState<Date>(selected ?? new Date())
+  const [month, setMonth] = useState<Date>(selected ?? accountNow())
   return (
     <DayPicker
       mode="single"
@@ -145,8 +146,8 @@ export function DatePicker({
       <Calendar key={value ?? 'none'} value={value} onPick={pick} />
       <div className="flex items-center gap-1 border-t border-line p-2">
         <QuickBtn onClick={() => pick(todayStr())}>Сегодня</QuickBtn>
-        <QuickBtn onClick={() => pick(ymd(addDays(new Date(), 1)))}>Завтра</QuickBtn>
-        <QuickBtn onClick={() => pick(ymd(addDays(new Date(), 7)))}>Через неделю</QuickBtn>
+        <QuickBtn onClick={() => pick(ymd(addDays(accountNow(), 1)))}>Завтра</QuickBtn>
+        <QuickBtn onClick={() => pick(ymd(addDays(accountNow(), 7)))}>Через неделю</QuickBtn>
         {clearable && value && (
           <QuickBtn onClick={() => pick(null)} className="ml-auto text-fg-3">
             Очистить
@@ -193,7 +194,7 @@ export function TimePicker({
   useEffect(() => {
     if (!open) return
     requestAnimationFrame(() => {
-      const target = value || format(new Date(), 'HH:00')
+      const target = value || format(accountNow(), 'HH:00')
       list.current?.querySelector<HTMLElement>(`[data-time="${TIMES.find((t) => t >= target) ?? '23:45'}"]`)?.scrollIntoView({ block: 'center' })
     })
   }, [open, value])

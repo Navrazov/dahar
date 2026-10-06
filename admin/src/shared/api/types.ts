@@ -52,6 +52,9 @@ export interface UserRow {
 }
 
 export interface UserDetail {
+  telegram_chat_id: string | null
+  last_miniapp_at: string | null
+  trial_ends_at: string | null
   id: number
   login: string
   name: string | null
@@ -145,4 +148,95 @@ export interface AuditEntry {
 export interface Retention {
   cohorts: { cohort: string; size: number; weeks: (number | null)[] }[]
   top: { id: number; login: string; name: string | null; days: number }[]
+}
+
+export type SubscriptionStatus = 'active' | 'trial' | 'expired' | 'pilot'
+export interface SubscriptionRow {
+  user_id: number
+  login: string
+  name: string | null
+  blocked_at: string | null
+  status: SubscriptionStatus
+  trial_ends_at: string | null
+  paid_until: string | null
+  cancel_at_period_end: boolean | null
+  updated_at: string | null
+  paid_payments: number
+}
+export interface SubscriptionsPage extends Page<SubscriptionRow> {
+  checkout_available: boolean
+  summary: { total: number; active: number; trial: number; expired: number; pilot: number; canceling: number }
+}
+export interface PaymentRow {
+  id: string
+  user_id: number | null
+  login: string | null
+  name: string | null
+  provider: string
+  provider_payment_id: string
+  status: string
+  plan: string | null
+  amount: string
+  currency: string
+  refunded_amount: string
+  created_at: string
+  paid_at: string | null
+  updated_at: string
+}
+export interface PaymentsPage extends Page<PaymentRow> {
+  checkout_available: boolean
+  money: { currency: string; gross: string; refunded: string; net: string }[]
+  statuses: { status: string; count: number }[]
+}
+export interface TelegramRow {
+  user_id: number
+  login: string
+  name: string | null
+  chat_id: string
+  blocked_at: string | null
+  last_seen_at: string | null
+  last_miniapp_at: string | null
+  linked_at: string | null
+  failed: number
+  last_delivered_at: string | null
+}
+export interface TelegramPage extends Page<TelegramRow> {
+  summary: { linked: number; miniapp: number; miniapp7: number; affected: number }
+}
+export interface DeliveryRow {
+  user_id: number
+  login: string
+  name: string | null
+  key: string
+  channel: string
+  attempts: number
+  delivered_at: string | null
+  next_attempt_at: string
+  last_error: string | null
+}
+export interface AiRunRow {
+  last_error: string | null
+  user_id: number
+  login: string
+  name: string | null
+  key: string
+  week_start: string
+  status: string
+  model: string | null
+  input_tokens: number | null
+  output_tokens: number | null
+  cost_usd: string | null
+  duration_ms: number | null
+  created_at: string
+}
+export interface AiRunsPage extends Page<AiRunRow> {
+  summary: { requests: number; failed: number; unpriced: number; known_cost_usd: string; input_tokens: string; output_tokens: string }
+}
+export interface ProductMetrics {
+  window_days: number
+  definition: string
+  dau: number
+  wau: number
+  mau: number
+  events: { event: string; users: number; occurrences: number }[]
 }

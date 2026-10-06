@@ -11,6 +11,7 @@ import { idbAvailable, kv, queue } from '../lib/idb'
 export interface OutboxItem {
   seq?: number
   /** Чьё это изменение: очередь одного пользователя никогда не уходит в чужой аккаунт. */
+  datasetVersion?: number
   owner: number | null
   url: string
   method: string
@@ -45,6 +46,11 @@ export const isQueueable = (url: string, method: string) =>
   ((QUEUEABLE.test(url) && (tableOrder.includes(url.split('/')[2] as never) || url.startsWith('/api/settings/') || url === '/api/habit-log')) ||
     url === '/api/tasks/bulk')
 
+let datasetVersion: number | undefined = 1
+export const setOutboxDataset = (value: number | undefined) => {
+  datasetVersion = value
+}
+export const getOutboxDataset = () => datasetVersion
 let owner: number | null = null
 
 /** Вызывается, когда известен вошедший пользователь (и null при выходе). */
@@ -85,6 +91,7 @@ export async function enqueue<T>(url: string, init: RequestInit): Promise<T> {
     method,
     body,
     owner,
+    datasetVersion,
     operationKey: new Headers(init.headers).get('Idempotency-Key') || crypto.randomUUID(),
     createdAt: Date.now(),
   }
@@ -153,6 +160,12 @@ export function flushOutbox(): Promise<FlushResult> {
       if (item.owner !== user) continue
       if (item.error) break
       if (owner !== user) break
+      if (Date.now() - item.createdAt > 28 * 86400000 || (item.datasetVersion === undefined && datasetVersion !== 1)) {
+        const message = 'Изменение слишком старое или создано до восстановления данных. Проверьте его вручную'
+        await queue.put({ ...item, error: message })
+        result.failed.push({ url: item.url, message })
+        break
+      }
       const url = item.url.replace(/\/(-\d+)$/, (_m, id: string) => `/${ids.get(Number(id)) ?? id}`)
       let body = remapBody(item.body, ids)
       if (body && (/^\/api\/settings\/[a-z_]+_project_id$/.test(item.url) || item.url === '/api/settings/default_account_id')) {
@@ -168,6 +181,7 @@ export function flushOutbox(): Promise<FlushResult> {
           headers: {
             ...(body ? { 'Content-Type': 'application/json' } : {}),
             'X-Dahar-User': String(user),
+            'X-Dahar-Dataset': String(item.datasetVersion ?? 1),
             'Idempotency-Key': item.operationKey || `legacy-${user}-${item.seq}-${item.createdAt}`,
           },
           body,

@@ -82,6 +82,8 @@ export const schema = {
   },
   tasks: {
     title,
+    estimate_minutes: { type: 'int', min: 1, max: 1440 },
+    checklist: { type: 'text', max: 10000 },
     description: long,
     due_date: date,
     due_time: { type: 'time' },

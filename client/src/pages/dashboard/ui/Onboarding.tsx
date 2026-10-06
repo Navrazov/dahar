@@ -52,8 +52,17 @@ export function Onboarding() {
           </Button>
         </div>
       )}
+      {!tasks.length && (
+        <div className="flex flex-wrap gap-2">
+          {['Спланировать рабочую неделю', 'Сделать первый шаг в личном проекте', 'Выделить 15 минут на новую привычку'].map((template) => (
+            <Button key={template} size="sm" onClick={() => setTitle(template)}>
+              {template}
+            </Button>
+          ))}
+        </div>
+      )}
       {!!tasks.length && <p className="text-[13px] text-good">Задача готова. Отметьте её выполненной, когда закончите.</p>}
-      {isEnabled(settings, 'habits') && !habits.length && (
+      {tasks.length > 0 && isEnabled(settings, 'habits') && !habits.length && (
         <div className="flex flex-wrap gap-2">
           <Input
             aria-label="Первая привычка"
@@ -66,6 +75,15 @@ export function Onboarding() {
             Добавить привычку
           </Button>
         </div>
+      )}
+      {!!tasks.length && (
+        <p className="text-[13px] text-fg-2">
+          Хотите записывать дела из Telegram или получать напоминания? Подключите их в{' '}
+          <a className="underline" href="/settings">
+            настройках
+          </a>
+          , когда будет удобно.
+        </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-fg-2">В конце недели загляните в «Итоги недели» — увидите, что получилось.</p>

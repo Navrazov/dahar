@@ -28,7 +28,7 @@ export function verifyInitData(initData: string, botToken: string, now = Date.no
   if (!timingSafeEqual(expected, Buffer.from(hash, 'hex'))) return null
 
   const authDate = Number(params.get('auth_date'))
-  if (!authDate || now / 1000 - authDate > MAX_AGE_SEC) return null
+  if (!authDate || authDate - now / 1000 > 60 || now / 1000 - authDate > MAX_AGE_SEC) return null
   try {
     const id = Number(JSON.parse(params.get('user') ?? 'null')?.id)
     return Number.isSafeInteger(id) && id > 0 ? id : null
@@ -62,6 +62,7 @@ export function webAppRoutes() {
     const user = await userByChat(tgId)
     if (!user) return res.status(403).json({ error: 'not_linked' })
 
+    await query('UPDATE users SET last_miniapp_at=now() WHERE id=$1', [user.id])
     const session = await userSessions.issue(req, user.id)
     res.json({ token: session, user })
   })

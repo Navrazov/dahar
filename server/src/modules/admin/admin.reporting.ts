@@ -10,8 +10,11 @@ export const searchTerm = (value: unknown) =>
   String(value ?? '')
     .trim()
     .slice(0, 100)
-const like = (value: unknown) => `%${searchTerm(value).replace(/[\\%_]/g, '\\$&')}%`
-const pagination = (params: Record<string, unknown>) => ({ limit: Math.max(1, bounded(params.limit, 50, 100)), offset: bounded(params.offset, 0, 1_000_000) })
+export const like = (value: unknown) => `%${searchTerm(value).replace(/[\\%_]/g, '\\$&')}%`
+export const pagination = (params: Record<string, unknown>) => ({
+  limit: Math.max(1, bounded(params.limit, 50, 100)),
+  offset: bounded(params.offset, 0, 1_000_000),
+})
 
 export async function usersPage(params: Record<string, unknown>) {
   const { limit, offset } = pagination(params)

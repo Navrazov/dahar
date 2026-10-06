@@ -14,6 +14,10 @@ function spa(dist: string, { serviceWorker = false } = {}) {
     })
   }
   if (serviceWorker) {
+    r.get('/welcome', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache')
+      res.sendFile(resolve(dist, 'welcome.html'))
+    })
     r.get('/sw.js', (_req, res) => {
       res.setHeader('Cache-Control', 'no-cache')
       res.sendFile(resolve(dist, 'sw.js'))

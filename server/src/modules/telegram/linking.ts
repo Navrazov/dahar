@@ -4,6 +4,7 @@ import { randomToken } from '../../lib/crypto.ts'
 import { botInfo } from './transport.ts'
 
 export interface TgUser {
+  dataset_version: number
   id: number
   name: string | null
   login: string
@@ -36,6 +37,6 @@ export async function isLinked(userId: number) {
 }
 
 export async function userByChat(chatId: number | undefined): Promise<TgUser | undefined> {
-  const { rows } = await query<TgUser>('SELECT id, name, login FROM users WHERE telegram_chat_id = $1 AND blocked_at IS NULL', [chatId])
+  const { rows } = await query<TgUser>('SELECT id, name, login, dataset_version FROM users WHERE telegram_chat_id = $1 AND blocked_at IS NULL', [chatId])
   return rows[0]
 }

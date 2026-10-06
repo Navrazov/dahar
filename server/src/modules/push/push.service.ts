@@ -1,3 +1,7 @@
+import { ECDH } from 'node:crypto'
+import { tx } from '../../db/pool.ts'
+import { badRequest } from '../../lib/errors.ts'
+import { deliver } from '../../jobs/delivery.ts'
 import webpush from 'web-push'
 import { config } from '../../config.ts'
 import { query } from '../../db/pool.ts'
@@ -37,23 +41,42 @@ export interface SubscriptionInput {
   keys?: { p256dh?: unknown; auth?: unknown }
 }
 
-export const isValidSubscription = (s: SubscriptionInput | undefined): s is { endpoint: string; keys: { p256dh: string; auth: string } } =>
-  !!s &&
-  typeof s.endpoint === 'string' &&
-  /^https:\/\/\S+$/.test(s.endpoint) &&
-  s.endpoint.length <= 1000 &&
-  typeof s.keys?.p256dh === 'string' &&
-  s.keys.p256dh.length <= 200 &&
-  typeof s.keys?.auth === 'string' &&
-  s.keys.auth.length <= 100
+export const isValidSubscription = (s: SubscriptionInput | undefined): s is { endpoint: string; keys: { p256dh: string; auth: string } } => {
+  if (!s || typeof s.endpoint !== 'string' || s.endpoint.length > 1000 || typeof s.keys?.p256dh !== 'string' || typeof s.keys.auth !== 'string') return false
+  try {
+    const url = new URL(s.endpoint)
+    const allowed = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com', 'notify.windows.com']
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== '443') ||
+      !allowed.some((host) => url.hostname === host || url.hostname.endsWith('.' + host))
+    )
+      return false
+    if (!/^[A-Za-z0-9_-]+={0,2}$/.test(s.keys.p256dh) || !/^[A-Za-z0-9_-]+={0,2}$/.test(s.keys.auth)) return false
+    const key = Buffer.from(s.keys.p256dh, 'base64url')
+    if (key.length !== 65 || key[0] !== 4 || Buffer.from(s.keys.auth, 'base64url').length !== 16) return false
+    ECDH.convertKey(key, 'prime256v1')
+    return true
+  } catch {
+    return false
+  }
+}
 
 export async function saveSubscription(userId: number, s: { endpoint: string; keys: { p256dh: string; auth: string } }, userAgent: string | null) {
-  // Один и тот же браузер мог раньше принадлежать другому пользователю — подписка переходит к текущему.
-  await query(
-    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4, $5)
+  await tx(async (c) => {
+    await query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, userId], c)
+    const count = (await query('SELECT count(*)::int AS n FROM push_subscriptions WHERE user_id=$1 AND endpoint<>$2', [userId, s.endpoint], c)).rows[0].n
+    if (count >= 10) throw badRequest('Можно подключить до 10 устройств. Удалите старую подписку')
+    // Один и тот же браузер мог раньше принадлежать другому пользователю — подписка переходит к текущему.
+    await query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, user_agent = excluded.user_agent`,
-    [userId, s.endpoint, s.keys.p256dh, s.keys.auth, userAgent?.slice(0, 300) ?? null],
-  )
+      [userId, s.endpoint, s.keys.p256dh, s.keys.auth, userAgent?.slice(0, 300) ?? null],
+      c,
+    )
+  })
 }
 
 export async function removeSubscription(userId: number, endpoint: string) {
@@ -77,32 +100,45 @@ export interface PushMessage {
 }
 
 export interface PushSender {
-  sendToUser(userId: number, message: PushMessage): Promise<number>
+  sendToUser(userId: number, message: PushMessage, deliveryKey?: string): Promise<number>
 }
 
 /** Отправляет на все устройства пользователя. Просроченные подписки (404/410) удаляет. */
 export const pushSender: PushSender = {
-  async sendToUser(userId, message) {
+  async sendToUser(userId, message, deliveryKey) {
     if (!vapid) return 0
     const { rows } = await query<{ id: number; endpoint: string; p256dh: string; auth: string }>(
       'SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1',
       [userId],
     )
     let delivered = 0
+    let failed = false
     for (const s of rows) {
-      try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(message), {
-          TTL: 3600,
-          urgency: 'normal',
-        })
-        await query('UPDATE push_subscriptions SET last_used_at = now() WHERE id = $1', [s.id])
-        delivered++
-      } catch (e) {
-        const status = (e as { statusCode?: number }).statusCode
-        if (status === 404 || status === 410) await query('DELETE FROM push_subscriptions WHERE id = $1', [s.id])
-        else console.error('Push failed:', (e as Error).message)
+      const send = async () => {
+        try {
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(message), {
+            TTL: 3600,
+            urgency: 'normal',
+            timeout: 15000,
+          })
+          await query('UPDATE push_subscriptions SET last_used_at=now() WHERE id=$1', [s.id])
+          return true
+        } catch (e) {
+          const status = (e as { statusCode?: number }).statusCode
+          if (status === 404 || status === 410) {
+            await query('DELETE FROM push_subscriptions WHERE id=$1', [s.id])
+            return true
+          }
+          console.error('Push failed:', (e as Error).message)
+          return false
+        }
       }
+      const ok = deliveryKey ? await deliver(userId, deliveryKey, `push-device:${s.id}`, new Date(), send) : await send()
+      if (ok) delivered++
+      else failed = true
     }
+    // A channel is acknowledged only when every current device has finished.
+    if (failed) return 0
     return delivered
   },
 }

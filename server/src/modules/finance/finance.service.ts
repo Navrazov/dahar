@@ -49,7 +49,7 @@ export async function financeSummary(userId: number, month: string) {
     `SELECT b.id, b.category, b.amount,
             COALESCE((SELECT SUM(t.amount) FROM transactions t
                       WHERE t.user_id = b.user_id AND t.kind = 'expense' AND ${inMonths('t.date', '$2', '$2')}
-                        AND lower(t.category) = lower(b.category)), 0) AS spent
+                        AND lower(regexp_replace(btrim(t.category),'[[:space:]]+',' ','g')) = lower(regexp_replace(btrim(b.category),'[[:space:]]+',' ','g'))), 0) AS spent
      FROM budgets b WHERE b.user_id = $1 ORDER BY b.category`,
     [userId, `${month}-01`],
   )
@@ -72,8 +72,8 @@ export async function budgetStatus(userId: number, category: string | null, mont
   const { rows } = await query(
     `SELECT b.amount,
             COALESCE((SELECT SUM(amount) FROM transactions
-                      WHERE user_id = $1 AND kind = 'expense' AND ${inMonths('date', '$3', '$3')} AND lower(category) = lower($2)), 0) AS spent
-     FROM budgets b WHERE b.user_id = $1 AND lower(b.category) = lower($2)`,
+                      WHERE user_id = $1 AND kind = 'expense' AND ${inMonths('date', '$3', '$3')} AND lower(regexp_replace(btrim(category),'[[:space:]]+',' ','g')) = lower(regexp_replace(btrim($2),'[[:space:]]+',' ','g'))), 0) AS spent
+     FROM budgets b WHERE b.user_id = $1 AND lower(regexp_replace(btrim(b.category),'[[:space:]]+',' ','g')) = lower(regexp_replace(btrim($2),'[[:space:]]+',' ','g'))`,
     [userId, category, `${month}-01`],
   )
   return rows[0] ? { category, limit: rows[0].amount, spent: rows[0].spent } : null

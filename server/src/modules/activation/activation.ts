@@ -20,7 +20,21 @@ export function activationRoutes() {
   r.post('/', async (req, res) => {
     if (req.body?.event !== 'weekly_review_opened') throw badRequest('Неизвестное событие')
     await trackActivation(req.user.id, 'weekly_review_opened')
+    await trackBehavior(req.user.id, 'review_opened')
     res.json({ ok: true })
   })
   return r
+}
+
+export async function trackBehavior(
+  userId: number,
+  event: 'task_created' | 'task_completed' | 'focus_selected' | 'habit_logged' | 'review_saved' | 'review_opened' | 'export',
+  client?: Db,
+) {
+  await query(
+    `INSERT INTO behavior_daily(user_id,day,event) VALUES($1,(now() AT TIME ZONE 'UTC')::date,$2)
+    ON CONFLICT(user_id,day,event) DO UPDATE SET count=behavior_daily.count+1`,
+    [userId, event],
+    client,
+  )
 }

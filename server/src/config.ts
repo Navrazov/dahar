@@ -6,6 +6,9 @@ const role: Role = env.ROLE === 'web' || env.ROLE === 'worker' ? env.ROLE : 'all
 
 export const config = {
   role,
+  registrationEnabled: env.REGISTRATION_ENABLED === 'true' && !!env.TERMS_URL && !!env.PRIVACY_URL,
+  termsUrl: env.TERMS_URL || null,
+  privacyUrl: env.PRIVACY_URL || null,
   port: Number(env.PORT) || 3001,
   isProd: env.NODE_ENV === 'production',
   env: env.NODE_ENV || 'development',

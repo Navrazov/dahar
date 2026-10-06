@@ -1,6 +1,7 @@
 import 'express'
 
 export interface SessionUser {
+  dataset_version: number
   id: number
   login: string
   name: string | null

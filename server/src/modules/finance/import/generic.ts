@@ -25,6 +25,7 @@ interface Columns {
   description: number
   category: number
   status: number
+  currency: number
 }
 
 function findColumns(rows: string[][]): Columns | null {
@@ -40,6 +41,7 @@ function findColumns(rows: string[][]): Columns | null {
       description: find(DESCRIPTION),
       category: find(CATEGORY),
       status: find(STATUS),
+      currency: find(/^(валюта( операции| платежа| сч[её]та)?|currency)$/i),
     }
     if (cols.date >= 0 && (cols.amount >= 0 || (cols.income >= 0 && cols.expense >= 0))) return cols
   }
@@ -87,6 +89,7 @@ export function parseGeneric(rows: string[][]): ParsedRow[] {
       time: when.time,
       kind: amount < 0 ? 'expense' : 'income',
       amount: Math.abs(amount),
+      currency: cell(r, cols.currency) || /(?:RUB|USD|EUR|GBP|CNY|₽|\$|€|£|¥)/i.exec(cell(r, cols.amount))?.[0] || '',
       description: cell(r, cols.description),
       bank_category: cell(r, cols.category),
       mcc: '',

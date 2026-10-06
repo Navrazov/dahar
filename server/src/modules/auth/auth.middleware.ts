@@ -8,7 +8,7 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
   const hash = userSessions.tokenHash(req)
   if (hash) {
     const { rows } = await query<SessionUser>(
-      `SELECT u.id, u.login, u.name FROM sessions s JOIN users u ON u.id = s.user_id
+      `SELECT u.id, u.login, u.name, u.dataset_version FROM sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = $1 AND s.expires_at > now() AND u.blocked_at IS NULL`,
       [hash],
     )
@@ -24,5 +24,8 @@ export function requireUser(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: 'Требуется вход' })
   if (req.get('X-Dahar-User') && req.get('X-Dahar-User') !== String(req.user.id))
     return res.status(401).json({ error: 'В другой вкладке открыт другой аккаунт. Войдите снова' })
+  const generation = req.get('X-Dahar-Dataset')
+  if (req.method !== 'GET' && generation && generation !== String(req.user.dataset_version))
+    return res.status(409).json({ error: 'Данные восстановлены из копии. Старое изменение не применено; проверьте его вручную' })
   next()
 }

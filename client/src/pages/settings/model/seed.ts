@@ -1,11 +1,12 @@
+import { accountNow } from '@/shared/lib'
 import { addDays, setDate, subDays, subMonths } from 'date-fns'
 import { api } from '@/shared/api'
 import { ymd } from '@/shared/lib'
 
-const d = (offset: number) => ymd(addDays(new Date(), offset))
+const d = (offset: number) => ymd(addDays(accountNow(), offset))
 const dt = (offset: number, time: string) => `${d(offset)}T${time}`
 const inMonth = (m: number) => {
-  const today = new Date()
+  const today = accountNow()
   const maxDay = m === 0 ? today.getDate() : 28
   return ymd(setDate(subMonths(today, m), 1 + Math.floor(Math.random() * maxDay)))
 }
@@ -174,9 +175,9 @@ export async function seedDemo() {
     { name: 'Без телефона после 23:00', kind: 'quit', color: '#eb6834', rate: 0.12 },
   ]
   for (const { rate, ...h } of habits) {
-    const habit = await api.create('habits', { ...h, start_date: ymd(subDays(new Date(), 60)) } as any)
+    const habit = await api.create('habits', { ...h, start_date: ymd(subDays(accountNow(), 60)) } as any)
     for (let i = 60; i >= 1; i--) {
-      const day = ymd(subDays(new Date(), i))
+      const day = ymd(subDays(accountNow(), i))
       const r = Math.random()
       if (h.kind === 'quit' ? r < rate : r < rate) await api.habitLog(habit.id, day, h.kind === 'quit' ? 'slip' : 'done')
     }

@@ -186,6 +186,75 @@ export const migrations: Migration[] = [
       for (const table of tableOrder) await query(`CREATE INDEX IF NOT EXISTS ${q('idx_' + table + '_created_at')} ON ${q(table)}(created_at)`, [], c)
     },
   },
+  {
+    id: '008_launch_safety',
+    up: async (c) => {
+      await query(
+        `
+        ALTER TABLE notification_deliveries ADD COLUMN IF NOT EXISTS claim_token uuid;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS dataset_version integer NOT NULL DEFAULT 1;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at timestamptz;
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key text PRIMARY KEY, count integer NOT NULL, expires_at timestamptz NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS behavior_daily (
+          user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          day date NOT NULL, event text NOT NULL, count integer NOT NULL DEFAULT 1,
+          PRIMARY KEY(user_id,day,event)
+        );
+        CREATE TABLE IF NOT EXISTS ai_generation_locks(user_id integer PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,token uuid NOT NULL,expires_at timestamptz NOT NULL);
+        CREATE TABLE IF NOT EXISTS ai_runs(user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,key text NOT NULL,week_start date NOT NULL,status text NOT NULL,content jsonb,input_tokens integer,output_tokens integer,cost_usd numeric,model text,duration_ms integer,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(user_id,key));
+        CREATE TABLE IF NOT EXISTS file_deletions (storage_key text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          user_id integer PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          paid_until timestamptz, cancel_at_period_end boolean NOT NULL DEFAULT true,
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_request_operations_created ON request_operations(created_at);
+        CREATE INDEX IF NOT EXISTS idx_notification_next ON notification_deliveries(next_attempt_at);
+        INSERT INTO settings(user_id,key,value)
+          SELECT id,'modules','{"finance":{"enabled":true}}'::jsonb FROM users
+          ON CONFLICT(user_id,key) DO UPDATE SET value=jsonb_set(settings.value,'{finance}',
+            COALESCE(settings.value->'finance','{"enabled":true}'::jsonb));
+      `,
+        [],
+        c,
+      )
+    },
+  },
+  {
+    id: '009_admin_control_center',
+    up: async (c) => {
+      await query(
+        `
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_miniapp_at timestamptz;
+        ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS last_error text;
+        ALTER TABLE notification_deliveries ADD COLUMN IF NOT EXISTS last_error text;
+        CREATE TABLE IF NOT EXISTS payments (
+          id bigserial PRIMARY KEY,
+          user_id integer REFERENCES users(id) ON DELETE SET NULL,
+          provider text NOT NULL,
+          provider_payment_id text NOT NULL,
+          status text NOT NULL CHECK(status IN ('pending','succeeded','failed','canceled','refunded','partially_refunded')),
+          plan text CHECK(plan IN ('monthly','yearly')),
+          amount numeric(16,2) NOT NULL CHECK(amount > 0),
+          currency text NOT NULL CHECK(currency ~ '^[A-Z]{3}$'),
+          refunded_amount numeric(16,2) NOT NULL DEFAULT 0 CHECK(refunded_amount >= 0 AND refunded_amount <= amount),
+          created_at timestamptz NOT NULL DEFAULT now(),
+          paid_at timestamptz,
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE(provider,provider_payment_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at DESC,id DESC);
+        CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id,created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status,created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_ai_runs_created ON ai_runs(created_at DESC);
+      `,
+        [],
+        c,
+      )
+    },
+  },
 ]
 
 type Log = (message: string) => void

@@ -102,6 +102,7 @@ test.describe('signed in', () => {
     await expect(editor(page)).toBeHidden()
 
     await page.goto('/')
+    await expect(page.getByRole('button', { name: /Поиск.*K/ }).first()).toBeVisible()
     await page.keyboard.press('ControlOrMeta+k')
     const palette = page.getByRole('dialog', { name: 'Поиск и команды' })
     await expect(palette).toBeVisible()

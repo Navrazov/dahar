@@ -9,7 +9,7 @@ import { nowIn } from '../src/lib/time.ts'
 let app: App, user: Client, other: Client, userId: number
 
 const subscription = (n: number) => ({
-  endpoint: `https://push.example.com/send/${n}`,
+  endpoint: `https://fcm.googleapis.com/send/${n}`,
   keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' },
 })
 

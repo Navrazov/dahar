@@ -20,7 +20,7 @@ const Settings = lazy(() => import('@/pages/settings').then((m) => ({ default: m
 const sections: { path: string; label: string; hint: string; module?: ModuleKey }[] = [
   { path: '/tasks', label: 'Все задачи', hint: 'Сроки, проекты и повторения' },
   { path: '/calendar', label: 'Календарь', hint: 'События и расписание' },
-  { path: '/habits', label: 'Все привычки', hint: 'Создание, расписание и статистика', module: 'habits' },
+  { path: '/habits/manage', label: 'Все привычки', hint: 'Создание, расписание и статистика', module: 'habits' },
   { path: '/projects', label: 'Проекты', hint: 'Планы и связанные задачи' },
   { path: '/goals', label: 'Цели', hint: 'Прогресс и показатели' },
   { path: '/review', label: 'Итоги недели', hint: 'Результаты и следующий шаг' },
@@ -32,22 +32,36 @@ const sections: { path: string; label: string; hint: string; module?: ModuleKey 
 ]
 function Hub() {
   const settings = useSettings()
+  const visible = sections.filter((s) => !s.module || isEnabled(settings, s.module))
+  const extra = visible.filter((s) => ['partners', 'trading', 'business'].includes(s.module || ''))
+  const core = visible.filter((s) => !extra.includes(s))
+  const rows = (items: typeof sections) =>
+    items.map((s) => (
+      <Link key={s.path} to={s.path} className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 active:bg-hover">
+        <span>
+          <span className="block text-[15px] font-medium">{s.label}</span>
+          <span className="text-[13px] text-fg-3">{s.hint}</span>
+        </span>
+        <span aria-hidden className="text-fg-3">
+          ›
+        </span>
+      </Link>
+    ))
   return (
-    <Card className="divide-y divide-line">
-      {sections
-        .filter((s) => !s.module || isEnabled(settings, s.module))
-        .map((s) => (
-          <Link key={s.path} to={s.path} className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 active:bg-hover">
-            <span>
-              <span className="block text-[15px] font-medium">{s.label}</span>
-              <span className="text-[13px] text-fg-3">{s.hint}</span>
-            </span>
-            <span aria-hidden className="text-fg-3">
-              ›
-            </span>
-          </Link>
-        ))}
-    </Card>
+    <div className="space-y-4">
+      {isEnabled(settings, 'finance') && (
+        <Link className="block min-h-14 rounded-xl border border-line bg-surface p-4 text-sm font-medium" to="/money">
+          Записать трату или доход →
+        </Link>
+      )}
+      <Card className="divide-y divide-line">{rows(core)}</Card>
+      {extra.length > 0 && (
+        <details className="rounded-xl border border-line bg-surface">
+          <summary className="min-h-14 cursor-pointer px-4 py-4 text-sm text-fg-3">Дополнительные направления</summary>
+          <div className="divide-y divide-line">{rows(extra)}</div>
+        </details>
+      )}
+    </div>
   )
 }
 export function MiniSections() {
@@ -67,7 +81,7 @@ export function MiniSections() {
           <Route path="more" element={<Hub />} />
           <Route path="tasks" element={<Tasks />} />
           <Route
-            path="habits"
+            path="habits/manage"
             element={
               <ModuleGate module="habits">
                 <Habits />
@@ -78,7 +92,7 @@ export function MiniSections() {
           <Route path="projects/:id" element={<Project />} />
           <Route path="goals" element={<Goals />} />
           <Route path="calendar" element={<Calendar />} />
-          <Route path="review" element={<Review />} />
+          <Route path="review/advanced" element={<Review />} />
           <Route
             path="finance"
             element={

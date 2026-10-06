@@ -1,5 +1,6 @@
+import { accountNow } from '@/shared/lib'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { addDays, addWeeks, eachDayOfInterval, format, parseISO, startOfISOWeek } from 'date-fns'
 import { toast } from 'sonner'
@@ -7,6 +8,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { api, type Review as ReviewRow, useList, useListWhere, useSave, useSettings } from '@/shared/api'
 import { money, pct, signedMoney, sum, todayStr, ymd } from '@/shared/lib'
 import { Button, Card, CardHeader, Empty, FieldLabel, IconButton, Input, PageHeader, Progress, Stat, Textarea } from '@/shared/ui'
+import { useUser } from '@/entities/session'
 import { saleProfit } from '@/entities/business'
 import { useGoalProgress } from '@/entities/goal'
 import { isScheduled } from '@/entities/habit'
@@ -24,7 +26,7 @@ export function ReviewPage() {
     api.activation('weekly_review_opened').catch(() => {})
   }, [])
   const qc = useQueryClient()
-  const [week, setWeek] = useState(() => weekOf(new Date()))
+  const [week, setWeek] = useState(() => weekOf(accountNow()))
   const settings = useSettings()
   const cur = settings.currency || '₽'
   const tcur = settings.trading_currency || '$'
@@ -43,12 +45,12 @@ export function ReviewPage() {
   const habits = useList('habits').filter((h) => !h.archived)
   const logs = useList('habit_logs')
   const goals = useList('goals').filter((g) => g.status === 'active')
-  const partners = useList('partners')
-  const interactions = useList('partner_interactions')
-  const trades = useList('trades')
-  const sales = useList('sales')
-  const bizExp = useList('biz_expenses')
-  const txns = useListWhere('transactions', { from: start, to: end })
+  const partners = useList('partners', isEnabled(settings, 'partners'))
+  const interactions = useList('partner_interactions', isEnabled(settings, 'partners'))
+  const trades = useList('trades', isEnabled(settings, 'trading'))
+  const sales = useList('sales', isEnabled(settings, 'business'))
+  const bizExp = useList('biz_expenses', isEnabled(settings, 'business'))
+  const txns = useListWhere('transactions', { from: start, to: end }, isEnabled(settings, 'finance'))
 
   const done = tasks.filter((t) => t.status === 'done' && inWeek(t.completed_at))
   const overdue = tasks.filter((t) => t.status !== 'done' && t.due_date && t.due_date < (end < today ? end : today))
@@ -79,7 +81,7 @@ export function ReviewPage() {
   const newPartners = partners.filter((p) => inWeek(p.created_at.slice(0, 10))).length
 
   const label = `${format(parseISO(start), 'd MMM')} — ${format(parseISO(end), 'd MMM yyyy')}`
-  const isCurrent = week === weekOf(new Date())
+  const isCurrent = week === weekOf(accountNow())
 
   return (
     <>
@@ -89,7 +91,7 @@ export function ReviewPage() {
         <span className="min-w-48 text-center text-[14px] font-semibold">{label}</span>
         <IconButton icon={ChevronRight} label="Следующая неделя" onClick={() => setWeek(ymd(addWeeks(parseISO(week), 1)))} />
         {!isCurrent && (
-          <Button size="sm" variant="ghost" onClick={() => setWeek(weekOf(new Date()))}>
+          <Button size="sm" variant="ghost" onClick={() => setWeek(weekOf(accountNow()))}>
             Текущая
           </Button>
         )}
@@ -171,7 +173,7 @@ export function ReviewPage() {
 
         <div className="space-y-4">
           <WeekInsight week={week} />
-          <Reflection week={week} />
+          <Reflection key={week} week={week} />
           {isEnabled(settings, 'habits') && habitRows.length > 0 && (
             <Card>
               <CardHeader title="Привычки за неделю" />
@@ -235,10 +237,43 @@ function Reflection({ week }: { week: string }) {
   const reviews = useList('reviews')
   const save = useSave('reviews')
   const existing = useMemo(() => reviews.find((r) => r.week_start === week), [reviews, week])
-  const [draft, setDraft] = useState<Partial<ReviewRow>>({})
+  const user = useUser()
+  const draftKey = `review-draft:${user.id}:${week}`
+  const edited = useRef(false)
+  const [draft, setDraft] = useState<Partial<ReviewRow>>(() => {
+    try {
+      const local = localStorage.getItem(draftKey)
+      if (local) {
+        edited.current = true
+        return JSON.parse(local)
+      }
+    } catch {
+      /* disabled storage */
+    }
+    return existing ?? {}
+  })
+  const changeDraft = (update: (value: Partial<ReviewRow>) => Partial<ReviewRow>) => {
+    edited.current = true
+    setDraft(update)
+  }
   useEffect(() => {
-    setDraft(existing ?? {})
-  }, [existing, week])
+    if (!edited.current) setDraft(existing ?? {})
+  }, [existing])
+  useEffect(() => {
+    if (!edited.current) return
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft))
+    } catch {
+      /* disabled storage */
+    }
+  }, [draft, draftKey])
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (edited.current) event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [])
   const dirty = prompts.some((p) => (draft[p.key] ?? '') !== (existing?.[p.key] ?? '')) || draft.rating !== existing?.rating
 
   const submit = async () => {
@@ -251,6 +286,12 @@ function Reflection({ week }: { week: string }) {
       focus: draft.focus,
       rating: draft.rating,
     })
+    edited.current = false
+    try {
+      localStorage.removeItem(draftKey)
+    } catch {
+      /* disabled storage */
+    }
     toast.success('Обзор недели сохранён')
   }
 
@@ -272,7 +313,7 @@ function Reflection({ week }: { week: string }) {
                 role="radio"
                 aria-checked={draft.rating === n}
                 aria-label={`${n} из 5`}
-                onClick={() => setDraft((d) => ({ ...d, rating: d.rating === n ? null : n }))}
+                onClick={() => changeDraft((d) => ({ ...d, rating: d.rating === n ? null : n }))}
                 className={clsx(
                   'h-9 w-10 rounded-[7px] border text-[14px] font-medium tabular transition-colors',
                   draft.rating === n ? 'border-ink bg-ink text-on-ink' : 'border-line text-fg-2 hover:border-line-strong hover:text-fg',
@@ -285,11 +326,11 @@ function Reflection({ week }: { week: string }) {
         </FieldLabel>
         {prompts.map((p) => (
           <FieldLabel key={p.key} label={p.label}>
-            <Textarea value={draft[p.key] ?? ''} placeholder={p.placeholder} onChange={(e) => setDraft((d) => ({ ...d, [p.key]: e.target.value }))} />
+            <Textarea value={draft[p.key] ?? ''} placeholder={p.placeholder} onChange={(e) => changeDraft((d) => ({ ...d, [p.key]: e.target.value }))} />
           </FieldLabel>
         ))}
         <div className="flex justify-end">
-          <Button variant="primary" onClick={submit} disabled={!dirty}>
+          <Button variant="primary" onClick={submit} loading={save.isPending} disabled={!dirty}>
             Сохранить
           </Button>
         </div>

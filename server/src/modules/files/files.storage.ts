@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import type { S3Client } from '@aws-sdk/client-s3'
 import { config } from '../../config.ts'
-import { query, type Db } from '../../db/pool.ts'
+import { query, tx, type Db } from '../../db/pool.ts'
 import { badRequest } from '../../lib/errors.ts'
 
 type S3Module = typeof import('@aws-sdk/client-s3')
@@ -47,17 +48,27 @@ export function validateFile(dataUrl: unknown) {
 
 export async function storeFile(userId: number, dataUrl: unknown, client?: Db) {
   const { mime, buf } = validateFile(dataUrl)
-
   const store = await s3()
-  if (!store) {
-    const { rows } = await query('INSERT INTO files (user_id, mime, size, data) VALUES ($1, $2, $3, $4) RETURNING id', [userId, mime, buf.length, buf], client)
-    return fileUrl(rows[0].id)
+  const id = randomUUID()
+  const key = store ? `${userId}/${id}` : null
+  const reserve = async (c: Db) => {
+    await query('SELECT pg_advisory_xact_lock($1,$2)', [7262007, userId], c)
+    const usage = (await query('SELECT count(*)::int AS n,COALESCE(sum(size),0) AS bytes FROM files WHERE user_id=$1', [userId], c)).rows[0]
+    if (usage.n >= 500 || Number(usage.bytes) + buf.length > 256 * 1024 * 1024) throw badRequest('Лимит изображений аккаунта: 500 файлов или 256 МБ')
+    await query(
+      'INSERT INTO files(id,user_id,mime,size,data,storage_key) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, userId, mime, buf.length, store ? null : buf, key],
+      c,
+    )
   }
-  const { rows } = await query('INSERT INTO files (user_id, mime, size) VALUES ($1, $2, $3) RETURNING id', [userId, mime, buf.length], client)
-  const key = `${userId}/${rows[0].id}`
-  await store.client.send(new store.m.PutObjectCommand({ Bucket: store.bucket, Key: key, Body: buf, ContentType: mime }))
-  await query('UPDATE files SET storage_key = $1 WHERE id = $2', [key, rows[0].id], client)
-  return fileUrl(rows[0].id)
+  if (client) await reserve(client)
+  else await tx(reserve)
+  if (store) {
+    await store.client.send(new store.m.PutObjectCommand({ Bucket: store.bucket, Key: key!, Body: buf, ContentType: mime }))
+    const exists = (await query('SELECT 1 FROM files WHERE id=$1 AND user_id=$2', [id, userId], client)).rowCount
+    if (!exists) await query('INSERT INTO file_deletions(storage_key) VALUES($1) ON CONFLICT DO NOTHING', [key])
+  }
+  return fileUrl(id)
 }
 
 export async function readFile(userId: number, id: string, client?: Db): Promise<{ mime: string; body: Buffer } | null> {
@@ -79,16 +90,29 @@ export async function fileAsDataUrl(userId: number, url: string, client?: Db) {
 }
 
 export async function cleanupOrphanFiles() {
-  const { rows } = await query(`
-    DELETE FROM files f
-    WHERE f.created_at < now() - interval '1 day'
-      AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.screenshot = '/api/files/' || f.id::text)
-    RETURNING storage_key`)
+  const count = await tx(async (c) => {
+    const { rows } = await query(
+      `DELETE FROM files f
+      WHERE f.created_at < now() - interval '1 day'
+      AND NOT EXISTS(SELECT 1 FROM trades t WHERE t.screenshot='/api/files/'||f.id::text)
+      RETURNING storage_key`,
+      [],
+      c,
+    )
+    for (const row of rows) if (row.storage_key) await query('INSERT INTO file_deletions(storage_key) VALUES($1) ON CONFLICT DO NOTHING', [row.storage_key], c)
+    return rows.length
+  })
   const store = await s3()
   if (store) {
-    for (const r of rows) {
-      if (r.storage_key) await store.client.send(new store.m.DeleteObjectCommand({ Bucket: store.bucket, Key: r.storage_key })).catch(() => {})
+    const pending = (await query('SELECT storage_key FROM file_deletions ORDER BY created_at LIMIT 500')).rows
+    for (const row of pending) {
+      try {
+        await store.client.send(new store.m.DeleteObjectCommand({ Bucket: store.bucket, Key: row.storage_key }))
+        await query('DELETE FROM file_deletions WHERE storage_key=$1', [row.storage_key])
+      } catch {
+        /* Keep the durable deletion request for the next hourly retry. */
+      }
     }
   }
-  return rows.length
+  return count
 }

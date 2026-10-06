@@ -1,6 +1,6 @@
 import { recordLabels } from './records.labels.ts'
 import { startAction } from '../history/operation.ts'
-import { trackActivation } from '../activation/activation.ts'
+import { trackActivation, trackBehavior } from '../activation/activation.ts'
 import type { PoolClient } from 'pg'
 import { decode, encode } from '../../db/codec.ts'
 import { tx } from '../../db/pool.ts'
@@ -28,10 +28,19 @@ export function createRecord(table: TableName, body: unknown, userId: number, cl
     await assertRefsOwned(table, data, userId, c)
     const created = await insertRow(table, data, userId, c)
     await hooks[table]?.afterCreate?.(created, c, userId)
-    if (table === 'tasks') await trackActivation(userId, 'first_task', c)
+    if (table === 'tasks') {
+      await trackActivation(userId, 'first_task', c)
+      await trackBehavior(userId, 'task_created', c)
+    }
     if (table === 'habits') await trackActivation(userId, 'first_habit', c)
-    if (table === 'reviews') await trackActivation(userId, 'first_review', c)
-    if (table === 'tasks' && created.status === 'done') await trackActivation(userId, 'first_completion', c)
+    if (table === 'reviews') {
+      await trackActivation(userId, 'first_review', c)
+      await trackBehavior(userId, 'review_saved', c)
+    }
+    if (table === 'tasks' && created.status === 'done') {
+      await trackActivation(userId, 'first_completion', c)
+      await trackBehavior(userId, 'task_completed', c)
+    }
     return decode(created)
   }
   return client
@@ -53,7 +62,11 @@ export function updateRecord(table: TableName, id: unknown, body: unknown, userI
     await assertRefsOwned(table, data, userId, c)
     const updated = Object.keys(data).length ? await patchRow(table, prev.id, data, userId, c) : prev
     await hooks[table]?.afterUpdate?.(updated, prev, c, userId)
-    if (table === 'tasks' && updated.status === 'done') await trackActivation(userId, 'first_completion', c)
+    if (table === 'reviews') await trackBehavior(userId, 'review_saved', c)
+    if (table === 'tasks' && updated.status === 'done' && prev.status !== 'done') {
+      await trackActivation(userId, 'first_completion', c)
+      await trackBehavior(userId, 'task_completed', c)
+    }
     return decode(updated)
   }
   return client

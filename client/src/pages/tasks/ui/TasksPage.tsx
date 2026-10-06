@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -17,8 +18,8 @@ type Show = 'open' | 'all' | 'done'
 
 function groupByDue(tasks: Task[]) {
   const today = todayStr()
-  const tomorrow = ymd(addDays(new Date(), 1))
-  const weekEnd = ymd(endOfISOWeek(new Date()))
+  const tomorrow = ymd(addDays(accountNow(), 1))
+  const weekEnd = ymd(endOfISOWeek(accountNow()))
   const groups: { key: string; title: string; items: Task[]; tone?: string }[] = [
     { key: 'overdue', title: 'Просрочено', items: [], tone: 'text-bad' },
     { key: 'today', title: 'Сегодня', items: [] },
@@ -162,7 +163,7 @@ export function TasksPage() {
           <Button size="sm" loading={bulkBusy} onClick={() => bulk({ status: 'done' })}>
             Завершить
           </Button>
-          <Button size="sm" disabled={bulkBusy} onClick={() => bulk({ due_date: ymd(addDays(new Date(), 1)) })}>
+          <Button size="sm" disabled={bulkBusy} onClick={() => bulk({ due_date: ymd(addDays(accountNow(), 1)) })}>
             На завтра
           </Button>
           <div className="w-40">

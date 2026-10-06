@@ -17,10 +17,11 @@ setDefaultOptions({ locale: ru, weekStartsOn: 1 })
 initMonitoring()
 syncTelegramTheme()
 
-// Без сохранения кэша на устройстве и офлайн-очереди: мини-приложение открывают на минуту и закрывают.
+// Bearer authentication is verified at each opening. Drafts survive closing; record writes require a connection.
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, refetchOnWindowFocus: true, retry: (n, e) => !(e instanceof ApiError && e.status < 500) && n < 2 },
+    mutations: { networkMode: 'always' },
+    queries: { networkMode: 'always', staleTime: 30_000, refetchOnWindowFocus: true, retry: (n, e) => !(e instanceof ApiError && e.status < 500) && n < 2 },
   },
   mutationCache: new MutationCache({
     onError: (e) => {

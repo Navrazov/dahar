@@ -100,6 +100,18 @@ export function SuspenseSkeleton() {
 export function PageReady({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const [ready, setReady] = useState(false)
+  const [failures, setFailures] = useState({ missing: false, count: 0 })
+  useEffect(() => {
+    const check = () => {
+      const failed = qc
+        .getQueryCache()
+        .findAll()
+        .filter((q) => q.getObserversCount() > 0 && q.state.status === 'error' && q.queryKey[0] !== 'me')
+      setFailures({ missing: failed.some((q) => q.state.data === undefined), count: failed.length })
+    }
+    check()
+    return qc.getQueryCache().subscribe(check)
+  }, [qc])
   const pending = useRef(0)
   const [report] = useState(() => (delta: number) => {
     pending.current += delta
@@ -133,8 +145,24 @@ export function PageReady({ children }: { children: ReactNode }) {
 
   return (
     <PendingContext.Provider value={report}>
+      {failures.count > 0 && (
+        <div role="alert" className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
+          <p>
+            {failures.missing ? 'Не удалось загрузить данные. Проверьте соединение и повторите.' : 'Не удалось обновить данные. Показана сохранённая версия.'}
+          </p>
+          <button
+            type="button"
+            className="mt-2 underline"
+            onClick={() => {
+              void qc.refetchQueries({ type: 'active', predicate: (q) => q.state.status === 'error' })
+            }}
+          >
+            Повторить загрузку
+          </button>
+        </div>
+      )}
       {!ready && <PageSkeleton />}
-      <div className={ready ? 'animate-page-in' : 'hidden'}>{children}</div>
+      <div className={ready && !failures.missing ? 'animate-page-in' : 'hidden'}>{children}</div>
     </PendingContext.Provider>
   )
 }

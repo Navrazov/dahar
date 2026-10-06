@@ -1,6 +1,8 @@
-import { nowLocal } from '../lib/date'
+import { nowLocal, setAccountTimezone } from '../lib/date'
 import { json, request } from './http'
 import type {
+  MiniTaskPage,
+  MiniToday,
   CollectionName,
   Collections,
   FinanceSummary,
@@ -24,6 +26,11 @@ function withCompletion<K extends CollectionName>(t: K, data: Partial<Collection
 const query = (params: Params) => new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))
 
 export const api = {
+  miniTasks: (params: Params, signal?: AbortSignal) => request<MiniTaskPage>(`/api/mini/tasks?${query(params)}`, { signal }),
+  miniToday: (signal?: AbortSignal) => request<MiniToday>('/api/mini/today', { signal }),
+  miniWeek: (week: string, signal?: AbortSignal) =>
+    request<{ week: string; completed: number; remaining_due: number }>(`/api/mini/week?week=${week}`, { signal }),
+  miniProjectCounts: (signal?: AbortSignal) => request<{ project_id: number; total: number; done: number }[]>('/api/mini/project-counts', { signal }),
   me: () => request<{ user: User }>('/api/auth/me'),
   login: (login: string, password: string) => request<LoginResult>('/api/auth/login', json('POST', { login, password })),
   loginCode: (ticket: string, code: string) => request<{ user: User }>('/api/auth/login/2fa', json('POST', { ticket, code })),
@@ -65,11 +72,16 @@ export const api = {
 
   bulkTasks: (ids: number[], data: Partial<Collections['tasks']>) => request('/api/tasks/bulk', json('POST', { ids, data })),
   habitLog: (habit_id: number, date: string, status: 'done' | 'slip' | null) => request('/api/habit-log', json('PUT', { habit_id, date, status })),
-  settings: () => request<Settings>('/api/settings'),
+  settings: () =>
+    request<Settings>('/api/settings').then((settings) => {
+      setAccountTimezone(settings.timezone)
+      return settings
+    }),
   setSetting: (key: keyof Settings, value: unknown) => request(`/api/settings/${key}`, json('PUT', { value })),
   financeSummary: (month: string) => request<FinanceSummary>(`/api/finance/summary?month=${month}`),
   statementPreview: (account_id: number, data: string) => request<StatementPreview>('/api/finance/import/preview', json('POST', { account_id, data })),
-  statementImport: (account_id: number, rows: unknown[]) => request<StatementImportResult>('/api/finance/import', json('POST', { account_id, rows })),
+  statementImport: (account_id: number, rows: unknown[], confirm_currency = false) =>
+    request<StatementImportResult>('/api/finance/import', json('POST', { account_id, rows, confirm_currency })),
   upload: (dataUrl: string) => request<{ url: string }>('/api/files', json('POST', { data: dataUrl })),
   image: async (url: string) => {
     const blob = await request<Blob>(url, undefined, 'blob')
@@ -92,7 +104,8 @@ export const api = {
   calendarImport: (data: string) => request<{ created: number; updated: number }>('/api/calendar/import', json('POST', { data })),
   calendarExport: () => request<string>('/api/calendar/export'),
   activation: (event: string) => request('/api/activation', json('POST', { event })),
-  insight: (week: string) => request<{ enabled: boolean; insight: WeeklyInsight | null }>(`/api/insights?week=${week}`),
+  insight: (week: string) =>
+    request<{ enabled: boolean; insight: WeeklyInsight | null; quota?: { max: number; remaining: number } }>(`/api/insights?week=${week}`),
   createInsight: (week: string) => request<WeeklyInsight>('/api/insights', json('POST', { week })),
   push: () => request<{ publicKey: string | null; devices: number }>('/api/push'),
   pushSubscribe: (sub: PushSubscriptionJSON) => request('/api/push/subscribe', json('POST', sub)),

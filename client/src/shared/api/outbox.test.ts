@@ -25,7 +25,7 @@ const item = (seq: number, data: Partial<OutboxItem> = {}): OutboxItem => ({
   url: '/api/tasks',
   method: 'POST',
   body: '{"title":"Task"}',
-  createdAt: 1,
+  createdAt: Date.now(),
   operationKey: `operation-key-${seq}`,
   tempId: -seq,
   ...data,
@@ -75,6 +75,14 @@ describe('offline reliability', () => {
     expect(fetch.mock.calls.at(-1)?.[0]).toBe('/api/tasks/5')
     expect(mock.items).toHaveLength(0)
     expect(fetch.mock.calls[1][1].headers['Idempotency-Key']).toBe('operation-key-1')
+  })
+  it('retains expired changes for manual review without sending them', async () => {
+    mock.items = [item(1, { createdAt: Date.now() - 29 * 86400000 })]
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    expect((await flushOutbox()).failed).toHaveLength(1)
+    expect(mock.items).toHaveLength(1)
+    expect(fetch).not.toHaveBeenCalled()
   })
   it('network and server errors keep the original key for later retries', async () => {
     mock.items = [item(1)]

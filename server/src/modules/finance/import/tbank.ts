@@ -12,6 +12,7 @@ export function parseTbank(rows: string[][]): ParsedRow[] {
   const iDate = col('дата операции')
   const iStatus = col('статус')
   const iAmount = col('сумма платежа') >= 0 ? col('сумма платежа') : col('сумма операции')
+  const iCurrency = col(iAmount === col('сумма платежа') ? 'валюта платежа' : 'валюта операции')
   const iCategory = col('категория')
   const iDesc = col('описание')
   const iMcc = col('mcc')
@@ -27,6 +28,7 @@ export function parseTbank(rows: string[][]): ParsedRow[] {
       time: /\d{2}:\d{2}/.exec(r[iDate])?.[0] ?? '',
       kind: amount < 0 ? 'expense' : 'income',
       amount: Math.abs(amount),
+      currency: iCurrency >= 0 ? (r[iCurrency] || '').trim().toUpperCase() : '',
       description: r[iDesc] || '',
       bank_category: iCategory >= 0 ? r[iCategory] || '' : '',
       mcc: iMcc >= 0 ? r[iMcc] || '' : '',

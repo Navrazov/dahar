@@ -20,7 +20,7 @@ export const moduleCatalog: ModuleDef[] = [
     defaultEnabled: true,
     description: 'Что делать каждый день и от чего избавиться. Серии и статистика',
   },
-  { key: 'finance', label: 'Финансы', to: '/finance', icon: Wallet, defaultEnabled: true, description: 'Доходы, расходы, счета, бюджеты по категориям' },
+  { key: 'finance', label: 'Финансы', to: '/finance', icon: Wallet, defaultEnabled: false, description: 'Доходы, расходы, счета, бюджеты по категориям' },
   {
     key: 'calculator',
     label: 'Калькулятор',

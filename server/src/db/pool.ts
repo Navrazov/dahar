@@ -12,7 +12,7 @@ types.setTypeParser(types.builtins.TIMESTAMP, (v) => (v === null ? null : `${v.s
 export const pool = new pg.Pool({
   connectionString: config.databaseUrl,
   max: 10,
-  ssl: config.databaseSsl ? { rejectUnauthorized: false } : undefined,
+  ssl: config.databaseSsl ? { rejectUnauthorized: true } : undefined,
 })
 
 export type Db = pg.Pool | PoolClient

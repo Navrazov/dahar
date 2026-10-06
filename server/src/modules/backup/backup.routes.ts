@@ -1,3 +1,4 @@
+import { trackBehavior } from '../activation/activation.ts'
 import { operation } from '../history/operation.ts'
 import { Router } from 'express'
 import { badRequest, notFound } from '../../lib/errors.ts'
@@ -9,7 +10,9 @@ export function backupRoutes() {
   const r = Router()
   r.get('/backup', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="dahar-backup-${(await userNow(req.user.id)).date}.json"`)
-    res.json(await exportBackup(req.user.id))
+    const backup = await exportBackup(req.user.id)
+    await trackBehavior(req.user.id, 'export')
+    res.json(backup)
   })
   r.post('/restore/preview', async (req, res) => res.json(validateBackup(req.body)))
   r.post('/restore', async (req, res) => {

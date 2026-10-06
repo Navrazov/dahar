@@ -1,4 +1,4 @@
-import { enqueue, isQueueable, getOutboxOwner } from './outbox'
+import { enqueue, isQueueable, getOutboxOwner, getOutboxDataset } from './outbox'
 
 export class ApiError extends Error {
   constructor(
@@ -26,6 +26,8 @@ export async function request<T>(url: string, init?: RequestInit, responseType?:
   if (authToken) headers.set('Authorization', `Bearer ${authToken}`)
   const owner = getOutboxOwner()
   if (owner !== null) headers.set('X-Dahar-User', String(owner))
+  const generation = getOutboxDataset()
+  if (method !== 'GET' && generation !== undefined) headers.set('X-Dahar-Dataset', String(generation))
   const queueable = isQueueable(url, method)
   if (queueable && !navigator.onLine) return enqueue<T>(url, init ?? {})
 
@@ -44,7 +46,7 @@ export async function request<T>(url: string, init?: RequestInit, responseType?:
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+    if (res.status === 401 && owner === getOutboxOwner() && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
     throw new ApiError(res.status, body.error || `Ошибка ${res.status}`)
   }
   const action = res.headers.get('X-Dahar-Action')

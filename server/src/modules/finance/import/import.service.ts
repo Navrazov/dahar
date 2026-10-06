@@ -1,3 +1,5 @@
+import { importSigningKey, signImportRow, verifyImportRow } from './proof.ts'
+import { getSetting } from '../../settings/settings.repository.ts'
 import { startAction } from '../../history/operation.ts'
 import { createHash } from 'node:crypto'
 import type { PoolClient } from 'pg'
@@ -36,6 +38,34 @@ export async function parseStatement(buf: Buffer): Promise<{ bank: Bank; rows: P
   throw badRequest(UNKNOWN)
 }
 
+const currencyCode = (value: unknown) => {
+  const raw = String(value ?? '')
+    .trim()
+    .toUpperCase()
+  const aliases: Record<string, string> = {
+    '₽': 'RUB',
+    '₸': 'KZT',
+    '₴': 'UAH',
+    BR: 'BYN',
+    СУМ: 'UZS',
+    RUR: 'RUB',
+    РУБ: 'RUB',
+    'РУБ.': 'RUB',
+    РУБЛЬ: 'RUB',
+    РУБЛИ: 'RUB',
+    $: 'USD',
+    '€': 'EUR',
+    '£': 'GBP',
+    '¥': 'CNY',
+  }
+  return aliases[raw] || raw
+}
+async function checkCurrencies(userId: number, rows: { currency?: string }[], client?: PoolClient) {
+  const expected = currencyCode((await getSetting(userId, 'currency', client)) || '₽')
+  const mismatch = rows.find((row) => row.currency && currencyCode(row.currency) !== expected)
+  if (mismatch) throw badRequest(`Валюта выписки ${mismatch.currency} отличается от валюты учёта ${expected}. Конвертируйте выписку перед импортом`)
+}
+
 type KeyedRow = ParsedRow & { key: string }
 
 function withKeys(accountId: number | string, rows: ParsedRow[]): KeyedRow[] {
@@ -62,6 +92,8 @@ export interface PreviewRow {
   time: string
   kind: 'income' | 'expense'
   amount: number
+  currency: string
+  proof: string
   description: string
   bank_category: string
   category: string
@@ -85,9 +117,16 @@ export async function buildPreview(
 ): Promise<{ bank: Bank; rows: PreviewRow[] }> {
   const { bank, rows: parsed } = Buffer.isBuffer(statement) ? await parseStatement(statement) : statement
   if (!parsed.length) throw badRequest('В файле не нашлось ни одной операции')
+  if (parsed.length > 5000) throw badRequest('Слишком много операций за раз: максимум 5000')
+  if (parsed.some((row) => !isDate(row.date) || !Number.isFinite(row.amount) || row.amount <= 0 || row.amount > 1e12))
+    throw badRequest('В выписке некорректная дата или сумма; проверьте файл перед импортом')
 
   const account = await requireAccount(userId, accountId)
-  const rows = withKeys(account.import_identity || accountId, parsed).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+  await checkCurrencies(userId, parsed)
+  const rows = withKeys(
+    account.import_identity || accountId,
+    parsed.map((row) => ({ ...row, amount: Math.round(row.amount * 100) / 100 })),
+  ).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
   const [dupes, rules, names] = await Promise.all([
     existingKeys(
       userId,
@@ -97,6 +136,7 @@ export async function buildPreview(
     categoryNames(userId),
   ])
   const known = knownCategories(names)
+  const signingKey = await importSigningKey()
 
   const dates = rows.map((r) => r.date).sort()
   const candidates = (await transferCandidates(userId, accountId, addDays(dates[0], -2), addDays(dates[dates.length - 1], 2))).filter(isTransferLike)
@@ -116,10 +156,12 @@ export async function buildPreview(
       }
       return {
         key: r.key,
+        proof: signImportRow(signingKey, userId, account.id, r),
         date: r.date,
         time: r.time,
         kind: r.kind,
         amount: r.amount,
+        currency: r.currency || '',
         description: r.description,
         bank_category: r.bank_category,
         category: suggestCategory(r, rules, known),
@@ -142,6 +184,8 @@ interface CleanRow {
   date: string
   kind: 'income' | 'expense'
   amount: number
+  currency: string
+  proof: unknown
   category: string
   note: string
   match_id: number | null
@@ -159,6 +203,8 @@ function cleanRow(r: Record<string, unknown> | null | undefined): CleanRow {
     date: r.date,
     kind: r.kind,
     amount: Math.round(amount * 100) / 100,
+    currency: String(r.currency ?? '').slice(0, 32),
+    proof: r.proof,
     category: String(r.category ?? '')
       .trim()
       .slice(0, 100),
@@ -176,14 +222,23 @@ export interface ImportResult {
   skipped: number
 }
 
-export async function commitImport(userId: number, body: { account_id?: unknown; rows?: unknown } | undefined, client?: PoolClient): Promise<ImportResult> {
+export async function commitImport(
+  userId: number,
+  body: { account_id?: unknown; rows?: unknown; confirm_currency?: unknown } | undefined,
+  client?: PoolClient,
+): Promise<ImportResult> {
   if (!Array.isArray(body?.rows) || !body.rows.length) throw badRequest('Нет операций для сохранения')
   if (body.rows.length > 5000) throw badRequest('Слишком много операций за раз')
   const rows = body.rows.map(cleanRow)
+  if (rows.some((row) => !row.currency) && body.confirm_currency !== true)
+    throw badRequest('В выписке не указана валюта. Импортируйте через приложение и подтвердите валюту сумм перед сохранением')
+  const signingKey = await importSigningKey(client)
+  for (const row of rows) verifyImportRow(signingKey, userId, Number(body.account_id), row, row.proof)
 
   const run = async (c: PoolClient) => {
     await c.query('SELECT pg_advisory_xact_lock($1, $2)', [7262005, userId])
     const account = await requireAccount(userId, body.account_id, c)
+    await checkCurrencies(userId, rows, c)
     const result: ImportResult = { created: 0, transfers: 0, skipped: 0 }
     for (const r of rows) {
       if ((await existingKeys(userId, [r.key], c)).size) {
@@ -202,6 +257,7 @@ export async function commitImport(userId: number, body: { account_id?: unknown;
           date: r.date,
           kind: r.kind,
           amount: r.amount,
+          currency: r.currency || '',
           account_id: account.id,
           category: r.category || null,
           note: r.note || null,

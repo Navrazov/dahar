@@ -27,6 +27,7 @@ export function invalidateCollection(qc: QueryClient, t: CollectionName) {
     goals: ['tasks'],
     partners: ['tasks', 'events', 'partner_reports', 'partner_interactions'],
     accounts: ['transactions'],
+    budgets: ['transactions'],
     habits: ['habit_logs'],
     products: ['sales'],
     customers: ['sales'],

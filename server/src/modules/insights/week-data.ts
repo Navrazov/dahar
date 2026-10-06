@@ -9,7 +9,16 @@ import { getSetting } from '../settings/settings.repository.ts'
 export interface WeekData {
   week: { start: string; end: string }
   currency: string
-  tasks: { done: string[]; overdue: string[]; open_this_week: number; done_previous_week: number }
+  tasks: {
+    done: string[]
+    done_count: number
+    done_truncated: boolean
+    overdue: string[]
+    overdue_count: number
+    overdue_truncated: boolean
+    open_this_week: number
+    done_previous_week: number
+  }
   habits: { name: string; kind: string; done: number; slips: number }[]
   money: {
     income: number
@@ -37,6 +46,8 @@ export async function collectWeek(userId: number, start: string): Promise<WeekDa
     query(`SELECT title FROM tasks WHERE user_id = $1 AND status IS DISTINCT FROM 'done' AND due_date < $2 ORDER BY due_date LIMIT 20`, [userId, end]),
     query(
       `SELECT
+         count(*) FILTER (WHERE status = 'done' AND completed_at::date BETWEEN $2 AND $3)::int AS done_count,
+         count(*) FILTER (WHERE status IS DISTINCT FROM 'done' AND due_date < $3)::int AS overdue_count,
          count(*) FILTER (WHERE status IS DISTINCT FROM 'done' AND due_date BETWEEN $2 AND $3)::int AS open_this_week,
          count(*) FILTER (WHERE status = 'done' AND completed_at::date BETWEEN $4 AND $5)::int AS done_previous_week
        FROM tasks WHERE user_id = $1`,
@@ -68,7 +79,7 @@ export async function collectWeek(userId: number, start: string): Promise<WeekDa
     query(
       `SELECT b.category, b.amount AS limit,
               COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.user_id = b.user_id AND t.kind = 'expense'
-                        AND lower(t.category) = lower(b.category)
+                        AND lower(regexp_replace(btrim(t.category),'[[:space:]]+',' ','g')) = lower(regexp_replace(btrim(b.category),'[[:space:]]+',' ','g'))
                         AND t.date >= date_trunc('month', $2::date) AND t.date <= $2::date), 0) AS spent
        FROM budgets b WHERE b.user_id = $1`,
       [userId, end],
@@ -89,7 +100,11 @@ export async function collectWeek(userId: number, start: string): Promise<WeekDa
     currency: String((await getSetting(userId, 'currency')) || '₽'),
     tasks: {
       done: done.rows.map((t) => clip(t.title)),
+      done_count: counts.rows[0].done_count,
+      done_truncated: counts.rows[0].done_count > done.rows.length,
       overdue: overdue.rows.map((t) => clip(t.title)),
+      overdue_count: counts.rows[0].overdue_count,
+      overdue_truncated: counts.rows[0].overdue_count > overdue.rows.length,
       open_this_week: counts.rows[0].open_this_week,
       done_previous_week: counts.rows[0].done_previous_week,
     },

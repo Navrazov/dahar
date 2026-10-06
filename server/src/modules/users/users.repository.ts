@@ -1,4 +1,4 @@
-import { query, type DbRow } from '../../db/pool.ts'
+import { query, tx, type DbRow } from '../../db/pool.ts'
 import { hashPassword } from '../../lib/crypto.ts'
 import { nowIn } from '../../lib/time.ts'
 
@@ -20,11 +20,10 @@ export async function findById(id: number): Promise<DbRow | null> {
 }
 
 export async function createUser({ login, password, name }: { login: string; password: string; name?: string | null }) {
-  const { rows } = await query('INSERT INTO users (login, password_hash, name) VALUES ($1, $2, $3) RETURNING id, login, name, created_at', [
-    normalizeLogin(login),
-    await hashPassword(password),
-    name || normalizeLogin(login),
-  ])
+  const { rows } = await query(
+    "INSERT INTO users (login, password_hash, name, trial_ends_at) VALUES ($1, $2, $3, now() + interval '14 days') RETURNING id, login, name, created_at",
+    [normalizeLogin(login), await hashPassword(password), name || normalizeLogin(login)],
+  )
   return rows[0]
 }
 
@@ -34,8 +33,16 @@ export async function setPassword(id: number, password: string, { keepSession = 
 }
 
 export async function deleteUser(id: number) {
-  const { rowCount } = await query('DELETE FROM users WHERE id = $1', [id])
-  return (rowCount ?? 0) > 0
+  return tx(async (c) => {
+    await query('SELECT pg_advisory_xact_lock($1,$2)', [7262005, id], c)
+    await query(
+      'INSERT INTO file_deletions(storage_key) SELECT storage_key FROM files WHERE user_id=$1 AND storage_key IS NOT NULL ON CONFLICT DO NOTHING',
+      [id],
+      c,
+    )
+    const { rowCount } = await query('DELETE FROM users WHERE id=$1', [id], c)
+    return (rowCount ?? 0) > 0
+  })
 }
 
 const touched = new Map<number, { day: string; at: number }>()

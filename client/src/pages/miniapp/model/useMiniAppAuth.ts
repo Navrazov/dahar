@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api, ApiError, AUTH_EXPIRED_EVENT, setAuthToken, type User } from '@/shared/api'
+import { api, ApiError, AUTH_EXPIRED_EVENT, setAuthToken, setOutboxOwner, setOutboxDataset, type User } from '@/shared/api'
+import { SESSION_ENDED_EVENT } from '@/entities/session'
 import { webApp } from '@/shared/lib'
 
 export type AuthState = 'loading' | 'ready' | 'not_linked' | 'outside' | 'error'
@@ -37,13 +38,28 @@ export function useMiniAppAuth() {
     const expired = () => {
       setAuthToken(null)
       store.set(null)
+      setOutboxOwner(null)
+      setOutboxDataset(undefined)
+      void qc.cancelQueries()
       qc.clear()
       setUser(null)
       setState('loading')
       setAttempt((a) => a + 1)
     }
+    const ended = () => {
+      setAuthToken(null)
+      store.set(null)
+      setOutboxOwner(null)
+      setOutboxDataset(undefined)
+      setUser(null)
+      setState(webApp() ? 'not_linked' : 'outside')
+    }
     window.addEventListener(AUTH_EXPIRED_EVENT, expired)
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expired)
+    window.addEventListener(SESSION_ENDED_EVENT, ended)
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, expired)
+      window.removeEventListener(SESSION_ENDED_EVENT, ended)
+    }
   }, [state, qc])
 
   useEffect(() => {
@@ -51,15 +67,30 @@ export function useMiniAppAuth() {
     const done = (s: AuthState) => !cancelled && setState(s)
     const app = webApp()
 
+    async function accept(next: User, token: string | null) {
+      if (cancelled) return
+      await qc.cancelQueries()
+      if (cancelled) return
+      qc.clear()
+      setAuthToken(token)
+      setOutboxOwner(next.id)
+      setOutboxDataset(next.dataset_version)
+      if (token) store.set(token)
+      await qc.fetchQuery({ queryKey: ['settings'], queryFn: api.settings, staleTime: 0 })
+      if (cancelled) return
+      setUser(next)
+      done('ready')
+    }
+
     async function run() {
       // Открыли не из Telegram (например, при разработке) — пробуем обычную сессию браузера.
       if (!app) {
         try {
           const { user } = await api.me()
-          if (!cancelled) setUser(user)
-          return done('ready')
-        } catch {
-          return done('outside')
+          await accept(user, null)
+          return
+        } catch (e) {
+          return done(e instanceof ApiError && e.status === 401 ? 'outside' : 'error')
         }
       }
       setAuthToken(store.get())
@@ -67,10 +98,7 @@ export function useMiniAppAuth() {
         const { token, user } = await api.telegramWebApp(app.initData)
         // повторный запуск эффекта уже выдал новый токен, а этот сервер удалит — не трогаем
         if (cancelled) return
-        setUser(user)
-        setAuthToken(token)
-        store.set(token)
-        done('ready')
+        await accept(user, token)
       } catch (e) {
         if (cancelled) return
         setAuthToken(null)
@@ -85,7 +113,7 @@ export function useMiniAppAuth() {
     return () => {
       cancelled = true
     }
-  }, [attempt])
+  }, [attempt, qc])
 
   return {
     state,

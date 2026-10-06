@@ -117,7 +117,7 @@ export async function listUsers() {
 export async function userDetail(id: number) {
   const d = today()
   const { rows } = await query(
-    `SELECT u.id, u.login, u.name, u.created_at, u.last_seen_at, u.blocked_at, u.telegram_chat_id IS NOT NULL AS telegram,u.totp_secret IS NOT NULL AS two_factor,
+    `SELECT u.id, u.login, u.name, u.created_at, u.last_seen_at, u.blocked_at, u.telegram_chat_id IS NOT NULL AS telegram,u.telegram_chat_id::text AS telegram_chat_id,u.last_miniapp_at,u.trial_ends_at,u.totp_secret IS NOT NULL AS two_factor,
             (SELECT COALESCE(sum(size), 0) FROM files f WHERE f.user_id = u.id)::bigint AS files_size,
             (SELECT count(*) FROM files f WHERE f.user_id = u.id)::int AS files
      FROM users u WHERE u.id = $1`,
@@ -198,6 +198,10 @@ export async function listErrors(params: Record<string, unknown>) {
   if (searchTerm(params.q)) {
     args.push('%' + searchTerm(params.q).replace(/[\\%_]/g, '\\$&') + '%')
     filters.push(`(e.message ILIKE $${args.length} OR u.login ILIKE $${args.length})`)
+  }
+  if (/^[1-9]\d*$/.test(String(params.user_id))) {
+    args.push(String(params.user_id))
+    filters.push(`e.user_id=$${args.length}::bigint`)
   }
   const from = `FROM error_log e LEFT JOIN users u ON u.id=e.user_id WHERE ${filters.join(' AND ')}`
   const [items, daily, total, groups] = await Promise.all([

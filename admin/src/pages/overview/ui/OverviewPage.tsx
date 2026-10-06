@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { OperationsPanel } from '@/widgets/operations'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -31,6 +32,7 @@ export function OverviewPage() {
         />
       </QueryToolbar>
 
+      <LaunchSummary />
       <MetricStrip
         className="mb-4"
         items={[
@@ -114,6 +116,48 @@ export function OverviewPage() {
         </Card>
       </div>
       <OperationsPanel />
+    </div>
+  )
+}
+
+function LaunchSummary() {
+  const subscriptions = useQuery({ queryKey: ['subscriptions-summary'], queryFn: () => api.subscriptions({ limit: 1 }), refetchInterval: 60_000 })
+  const activity = useQuery({ queryKey: ['product-metrics'], queryFn: api.productMetrics, refetchInterval: 60_000 })
+  return (
+    <div className="mb-5 space-y-3">
+      {subscriptions.data ? (
+        <MetricStrip
+          items={[
+            { label: 'Активные подписки', value: subscriptions.data.summary.active },
+            { label: 'Пробуют продукт', value: subscriptions.data.summary.trial },
+            { label: 'Срок истёк', value: subscriptions.data.summary.expired },
+            { label: 'Аккаунты пилота', value: subscriptions.data.summary.pilot },
+          ]}
+        />
+      ) : (
+        <QueryState query={subscriptions} title="Подписки" />
+      )}
+      {activity.data ? (
+        <MetricStrip
+          items={[
+            { label: 'Полезная активность · день', value: activity.data.dau },
+            { label: 'Неделя', value: activity.data.wau },
+            { label: 'Месяц', value: activity.data.mau },
+          ]}
+        />
+      ) : (
+        <QueryState query={activity} title="Полезная активность" />
+      )}
+      <p className="text-xs text-fg-3">
+        Полезная активность: выполнение задачи, выбор главного, отметка привычки или сохранение обзора; дни UTC. Визиты ниже считаются отдельно.
+      </p>
+      <div className="flex flex-wrap gap-4 text-sm text-accent-text">
+        <Link to="/payments">Платежи →</Link>
+        <Link to="/subscriptions">Подписки →</Link>
+        <Link to="/telegram">Telegram →</Link>
+        <Link to="/deliveries?status=failed">Сбои доставки →</Link>
+        <Link to="/ai">AI и расходы →</Link>
+      </div>
     </div>
   )
 }

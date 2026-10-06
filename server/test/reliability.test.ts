@@ -116,6 +116,7 @@ test('restore keeps deduplication fingerprints and category rules; a private aut
   assert.equal(
     (
       await user.post('/api/finance/import', {
+        confirm_currency: true,
         account_id: account.id,
         rows: preview.rows.map((r: any) => ({ ...r, learn: true, category: 'Coffee learned' })),
       })

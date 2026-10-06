@@ -24,7 +24,7 @@ export async function sendDigests(out: TelegramOut = telegramOut, at = new Date(
       )
     if (u.push)
       receipts.push(
-        await deliver(u.id, key, 'push', at, async () => (await push.sendToUser(u.id, { ...(await digestSummary(u.id)), url: '/', tag: 'digest' })) > 0),
+        await deliver(u.id, key, 'push', at, async () => (await push.sendToUser(u.id, { ...(await digestSummary(u.id)), url: '/', tag: 'digest' }, key)) > 0),
       )
     if (receipts.length && receipts.every(Boolean)) {
       await putSetting(u.id, 'last_digest', now.date)

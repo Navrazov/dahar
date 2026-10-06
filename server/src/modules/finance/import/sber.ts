@@ -10,6 +10,7 @@ const NOISE =
 export const isSberText = (lines: string[]) => lines.some((l) => HEAD.test(l)) && lines.some((l) => /сбер/i.test(l))
 
 export function parseSber(lines: string[]): ParsedRow[] {
+  const currency = lines.map((line) => /валюта[^:]*:\s*(RUB|USD|EUR|руб[^ ]*|доллар[^ ]*|евро)/i.exec(line)?.[1]).find(Boolean) || ''
   const out: ParsedRow[] = []
   let cur: ParsedRow | null = null
   let extra = 0
@@ -27,6 +28,7 @@ export function parseSber(lines: string[]): ParsedRow[] {
         time: head[2],
         kind: raw.startsWith('+') ? 'income' : 'expense',
         amount: Math.abs(amount),
+        currency,
         description: '',
         bank_category: head[3].trim(),
         mcc: '',

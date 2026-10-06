@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { addDays, eachDayOfInterval, format, isToday, startOfISOWeek, subDays, subWeeks } from 'date-fns'
@@ -11,7 +12,7 @@ import { HabitCell } from '@/features/habit-check'
 
 function Heatmap({ habit, logs }: { habit: Habit; logs: Map<string, string> }) {
   const weeks = 17
-  const start = startOfISOWeek(subWeeks(new Date(), weeks - 1))
+  const start = startOfISOWeek(subWeeks(accountNow(), weeks - 1))
   const days = eachDayOfInterval({ start, end: addDays(start, weeks * 7 - 1) })
   const color = habit.color || 'var(--good)'
   return (
@@ -48,9 +49,9 @@ export function HabitsPage() {
   const active = habits.filter((h) => !h.archived)
   const shown = habits.filter((h) => (show === 'archived' ? h.archived : !h.archived))
   const stats = new Map(active.map((h) => [h.id, habitStats(h, logs)]))
-  const last7 = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i))
+  const last7 = Array.from({ length: 7 }, (_, i) => subDays(accountNow(), 6 - i))
 
-  const dueToday = active.filter((h) => h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, new Date()))
+  const dueToday = active.filter((h) => h.kind === 'quit' || h.frequency === 'weekly' || isScheduled(h, accountNow()))
   const doneToday = dueToday.filter((h) => stats.get(h.id)?.doneToday).length
   const avg7 = active.length ? sum(active.map((h) => stats.get(h.id)!.rate7)) / active.length : 0
   const avg30 = active.length ? sum(active.map((h) => stats.get(h.id)!.rate30)) / active.length : 0

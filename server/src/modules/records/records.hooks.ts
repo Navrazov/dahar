@@ -1,14 +1,29 @@
+import { trackBehavior } from '../activation/activation.ts'
+import { parseChecklist, serializeChecklist } from '@dahar/shared'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { encode, type Encoded } from '../../db/codec.ts'
 import { query, type DbRow } from '../../db/pool.ts'
 import type { TableName } from '../../db/schema.ts'
-import { badRequest } from '../../lib/errors.ts'
+import { HttpError, badRequest } from '../../lib/errors.ts'
 import { nextDueDate } from '../../lib/recurrence.ts'
 import { userNow } from '../settings/settings.repository.ts'
 import { insertRow } from './records.repository.ts'
 
-const carriedOver = ['title', 'description', 'due_time', 'priority', 'project_id', 'partner_id', 'goal_id', 'repeat', 'repeat_days', 'repeat_interval']
+const carriedOver = [
+  'estimate_minutes',
+  'checklist',
+  'title',
+  'description',
+  'due_time',
+  'priority',
+  'project_id',
+  'partner_id',
+  'goal_id',
+  'repeat',
+  'repeat_days',
+  'repeat_interval',
+]
 
 async function spawnNextOccurrence(task: DbRow, client: PoolClient, userId: number) {
   if (task.status !== 'done' || !task.repeat || task.repeat_spawned) return
@@ -16,7 +31,21 @@ async function spawnNextOccurrence(task: DbRow, client: PoolClient, userId: numb
   const due = nextDueDate(task, date)
   if (!due) return
   const copy = Object.fromEntries(carriedOver.map((col) => [col, task[col]]))
-  await insertRow('tasks', encode('tasks', { ...copy, due_date: due, status: 'todo' }, { lenient: true }), userId, client)
+  await insertRow(
+    'tasks',
+    encode(
+      'tasks',
+      {
+        ...copy,
+        checklist: serializeChecklist(parseChecklist(String(copy.checklist || '')).map((item) => ({ ...item, done: false }))),
+        due_date: due,
+        status: 'todo',
+      },
+      { lenient: true },
+    ),
+    userId,
+    client,
+  )
   await query('UPDATE tasks SET repeat_spawned = true WHERE id = $1', [task.id], client)
 }
 
@@ -38,6 +67,11 @@ export interface Hooks {
 export const hooks: Partial<Record<TableName, Hooks>> = {
   tasks: {
     async beforeWrite(data, prev, client, userId) {
+      if ('checklist' in data) {
+        const items = parseChecklist(String(data.checklist || ''))
+        if (items.length > 50 || items.some((item) => item.text.length > 200)) throw badRequest('Чек-лист: до 50 шагов по 200 символов')
+        data.checklist = serializeChecklist(items) || null
+      }
       const row = { ...prev, ...data }
       if (row.focus_date && row.status !== 'done' && (row.focus_date !== prev?.focus_date || prev?.status === 'done')) {
         const n = (
@@ -52,6 +86,7 @@ export const hooks: Partial<Record<TableName, Hooks>> = {
       if ('status' in data && data.status !== prev?.status) {
         data.completed_at = data.status === 'done' ? data.completed_at || (await userNow(userId, client)).stamp : null
       }
+      if (data.focus_date && data.focus_date !== prev?.focus_date) await trackBehavior(userId, 'focus_selected', client)
       if (rescheduled(data, prev)) {
         data.reminded_at = null
         await query('DELETE FROM notification_deliveries WHERE user_id=$1 AND key LIKE $2', [userId, `task:${prev!.id}:%`], client)
@@ -60,8 +95,24 @@ export const hooks: Partial<Record<TableName, Hooks>> = {
     afterCreate: spawnNextOccurrence,
     afterUpdate: (row, _prev, client, userId) => spawnNextOccurrence(row, client, userId),
   },
+  budgets: {
+    async beforeWrite(data, prev, client, userId) {
+      const category = String(data.category ?? prev?.category ?? '')
+        .trim()
+        .replace(/\s+/g, ' ')
+      if (!category) throw badRequest('Укажите категорию бюджета')
+      data.category = category
+      const duplicate = await query(
+        "SELECT 1 FROM budgets WHERE user_id=$1 AND lower(regexp_replace(btrim(category), '[[:space:]]+', ' ', 'g'))=lower($2) AND id<>$3",
+        [userId, category, prev?.id ?? 0],
+        client,
+      )
+      if (duplicate.rowCount) throw new HttpError(409, 'Бюджет для этой категории уже существует')
+    },
+  },
   transactions: {
     async beforeWrite(data, prev) {
+      if (typeof data.category === 'string') data.category = data.category.trim().replace(/\s+/g, ' ') || null
       const row = { ...prev, ...data }
       if (row.kind === 'transfer' && (!row.account_id || !row.to_account_id || row.account_id === row.to_account_id))
         throw badRequest('Для перевода выберите два разных счёта')

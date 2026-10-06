@@ -8,6 +8,7 @@ export {
   OUTBOX_EVENT,
   pendingCount,
   setOutboxOwner,
+  setOutboxDataset,
   setOfflineEnabled,
   failedChanges,
   retryChange,

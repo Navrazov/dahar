@@ -1,3 +1,4 @@
+import { accountNow } from '@/shared/lib'
 import type { CollectionName, Settings } from '@/shared/api'
 import { nowLocal, todayStr, type Option } from '@/shared/lib'
 import { contentStatuses } from '@/entities/business'
@@ -101,7 +102,7 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
         ...(String(v.metric).endsWith('_month') && !v.period_start
           ? {
               period_start: todayStr().slice(0, 7) + '-01',
-              period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString('sv-SE'),
+              period_end: new Date(accountNow().getFullYear(), accountNow().getMonth() + 1, 0).toLocaleDateString('sv-SE'),
             }
           : {}),
       }
@@ -113,7 +114,16 @@ export const entities: Partial<Record<CollectionName, EntityConfig>> = {
     fields: [
       { name: 'title', label: 'Название', type: 'text', required: true, full: true, placeholder: 'Что нужно сделать?' },
       { name: 'description', label: 'Описание', type: 'textarea', full: true },
-      { name: 'due_date', label: 'Срок', type: 'date' },
+      { name: 'due_date', label: 'Срок', type: 'date', hint: 'Дата, к которой дело должно быть сделано' },
+      { name: 'estimate_minutes', label: 'Длительность', type: 'number', suffix: 'мин.', positive: true, hint: 'От 1 до 1 440 минут' },
+      {
+        name: 'checklist',
+        label: 'Чек-лист',
+        type: 'textarea',
+        full: true,
+        placeholder: 'Один шаг на строку',
+        hint: 'До 50 шагов. Выполненные отмечаются в списке задач',
+      },
       { name: 'due_time', label: 'Время', type: 'time' },
       { name: 'priority', label: 'Приоритет', type: 'select', options: priorities },
       { name: 'status', label: 'Статус', type: 'select', options: taskStatuses },

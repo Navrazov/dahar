@@ -20,6 +20,10 @@ export async function operation<T>(req: Request, res: Response, label: string, r
     .digest('hex')
   const reply = await tx(async (c) => {
     await query('SELECT pg_advisory_xact_lock($1, $2)', [7262005, req.user.id], c)
+    const generation = req.get('X-Dahar-Dataset')
+    const current = (await query('SELECT dataset_version FROM users WHERE id=$1', [req.user.id], c)).rows[0]?.dataset_version
+    if (generation && generation !== String(current))
+      throw new HttpError(409, 'Данные восстановлены из копии. Старое изменение не применено; проверьте его вручную')
     if (key) {
       const { rows } = await query('SELECT * FROM request_operations WHERE user_id=$1 AND key=$2', [req.user.id, key], c)
       if (rows[0]) {

@@ -1,6 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { lazy } from 'react'
 import { Shell } from '@/widgets/shell'
+const SubscriptionsPage = lazy(() => import('@/pages/control').then((m) => ({ default: m.SubscriptionsPage })))
+const PaymentsPage = lazy(() => import('@/pages/control').then((m) => ({ default: m.PaymentsPage })))
+const TelegramPage = lazy(() => import('@/pages/control').then((m) => ({ default: m.TelegramPage })))
+const DeliveriesPage = lazy(() => import('@/pages/control').then((m) => ({ default: m.DeliveriesPage })))
+const AiPage = lazy(() => import('@/pages/control').then((m) => ({ default: m.AiPage })))
 const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })))
 const AuditPage = lazy(() => import('@/pages/audit').then((m) => ({ default: m.AuditPage })))
 const ErrorsPage = lazy(() => import('@/pages/errors').then((m) => ({ default: m.ErrorsPage })))
@@ -17,6 +22,11 @@ export function AppRouter() {
           <Route index element={<OverviewPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="users/:id" element={<UserPage />} />
+          <Route path="subscriptions" element={<SubscriptionsPage />} />
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="telegram" element={<TelegramPage />} />
+          <Route path="deliveries" element={<DeliveriesPage />} />
+          <Route path="ai" element={<AiPage />} />
           <Route path="activity" element={<ActivityPage />} />
           <Route path="errors" element={<ErrorsPage />} />
           <Route path="system" element={<SystemPage />} />
