@@ -88,7 +88,7 @@ test('admin workspace: loading, diagnostics, users, errors and audit', async ({ 
     await nav.getByRole('link', { name: 'AI и расходы', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'AI и расходы', exact: true })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Статус AI' })).toBeVisible()
-    await page.screenshot({ path: '/private/tmp/dahar-admin-ai-new.png', fullPage: true })
+    await page.screenshot({ path: test.info().outputPath('admin-ai.png'), fullPage: true })
   })
   await test.step('a failing query offers retry and a failed refresh keeps existing data', async () => {
     await page.route('**/api/admin/errors?**', (route) => route.fulfill({ status: 400, json: { error: 'Тестовая ошибка загрузки' } }))

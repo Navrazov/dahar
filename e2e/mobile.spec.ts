@@ -173,7 +173,7 @@ test('Mini App daily cycle: inbox, focus, editing, habit and a saved weekly revi
   await page.reload()
   await expect(page.getByRole('textbox', { name: 'Главное на следующую неделю', exact: true })).toHaveValue('Продолжить проект')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({ path: '/private/tmp/dahar-miniapp-week-new.png', fullPage: true })
+  await page.screenshot({ path: test.info().outputPath('miniapp-week.png'), fullPage: true })
 })
 
 test('Mini App pages large lists on the server and searches beyond the first page', async ({ page, context }) => {
