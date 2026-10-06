@@ -241,3 +241,16 @@ test('migrations upgrade an old database', async () => {
   assert.equal((await query(`SELECT start FROM events WHERE user_id = $1`, [uid])).rows[0].start, '2026-01-05T10:00')
   assert.equal((await query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, migrations.length)
 })
+
+test('typed-date migration can run twice on a reused connection', async () => {
+  const migration = migrations.find((m) => m.id === '005_typed_dates')!
+  const connection = await pool.connect()
+  try {
+    await migration.up(connection)
+    await migration.up(connection)
+    const result = await connection.query("SELECT pg_temp.dahar_date('2026-01-05') AS valid, pg_temp.dahar_date('2026-02-30') AS invalid")
+    assert.deepEqual(result.rows[0], { valid: '2026-01-05', invalid: null })
+  } finally {
+    connection.release()
+  }
+})

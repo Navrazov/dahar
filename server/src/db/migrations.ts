@@ -79,19 +79,19 @@ export const migrations: Migration[] = [
     async up(c) {
       await query(
         String.raw`
-        CREATE FUNCTION pg_temp.dahar_date(v text) RETURNS date LANGUAGE plpgsql IMMUTABLE AS $$
+        CREATE OR REPLACE FUNCTION pg_temp.dahar_date(v text) RETURNS date LANGUAGE plpgsql IMMUTABLE AS $$
         BEGIN
           IF v ~ '^\d{4}-\d{2}-\d{2}' THEN RETURN substr(v, 1, 10)::date; END IF;
           RETURN NULL;
         EXCEPTION WHEN others THEN RETURN NULL;
         END $$;
-        CREATE FUNCTION pg_temp.dahar_time(v text) RETURNS time LANGUAGE plpgsql IMMUTABLE AS $$
+        CREATE OR REPLACE FUNCTION pg_temp.dahar_time(v text) RETURNS time LANGUAGE plpgsql IMMUTABLE AS $$
         BEGIN
           IF v ~ '^\d{1,2}:\d{2}' THEN RETURN substring(v from '^\d{1,2}:\d{2}')::time; END IF;
           RETURN NULL;
         EXCEPTION WHEN others THEN RETURN NULL;
         END $$;
-        CREATE FUNCTION pg_temp.dahar_timestamp(v text) RETURNS timestamp LANGUAGE plpgsql IMMUTABLE AS $$
+        CREATE OR REPLACE FUNCTION pg_temp.dahar_timestamp(v text) RETURNS timestamp LANGUAGE plpgsql IMMUTABLE AS $$
         BEGIN
           IF v ~ '^\d{4}-\d{2}-\d{2}([T ]\d{1,2}:\d{2}(:\d{2}(\.\d+)?)?)?$' THEN RETURN replace(v, 'T', ' ')::timestamp; END IF;
           RETURN NULL;
