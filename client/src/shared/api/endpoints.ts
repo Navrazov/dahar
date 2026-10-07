@@ -68,8 +68,9 @@ export const api = {
   create: <K extends CollectionName>(t: K, data: Partial<Collections[K]>) => request<Collections[K]>(`/api/${t}`, json('POST', withCompletion(t, data))),
   update: <K extends CollectionName>(t: K, id: number, data: Partial<Collections[K]>) =>
     request<Collections[K]>(`/api/${t}/${id}`, json('PATCH', withCompletion(t, data))),
-  remove: (t: CollectionName, id: number) => request(`/api/${t}/${id}`, { method: 'DELETE' }),
+  remove: (t: CollectionName, id: number) => request<{ ok: true; action_id?: number }>(`/api/${t}/${id}`, { method: 'DELETE' }),
 
+  reorderTask: (id: number, before_id: number) => request('/api/tasks/reorder', json('POST', { id, before_id })),
   bulkTasks: (ids: number[], data: Partial<Collections['tasks']>) => request('/api/tasks/bulk', json('POST', { ids, data })),
   habitLog: (habit_id: number, date: string, status: 'done' | 'slip' | null) => request('/api/habit-log', json('PUT', { habit_id, date, status })),
   settings: () =>

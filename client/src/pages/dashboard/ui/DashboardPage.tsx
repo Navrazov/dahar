@@ -80,7 +80,7 @@ export function DashboardPage() {
   const today = todayStr()
   const month = today.slice(0, 7)
   const weekAhead = ymd(addDays(accountNow(), 7))
-  const todays = tasks.filter((t) => t.status !== 'done' && t.due_date && t.due_date <= today)
+  const todays = tasks.filter((t) => t.status !== 'done' && (t.planned_date || t.due_date) && (t.planned_date || t.due_date)! <= today)
   const doneToday = tasks.filter((t) => t.status === 'done' && t.completed_at?.slice(0, 10) === today)
   const overdue = todays.filter((t) => t.due_date! < today).length
   const upcoming = events.filter((e) => {

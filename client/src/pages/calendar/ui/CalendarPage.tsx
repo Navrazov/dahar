@@ -1,12 +1,13 @@
+import { toast } from 'sonner'
 import { accountNow } from '@/shared/lib'
 import { CalendarExchange } from './CalendarExchange'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { addDays, addMonths, addWeeks, endOfMonth, endOfISOWeek, format, isSameMonth, isToday, startOfISOWeek, startOfMonth } from 'date-fns'
 import { CheckSquare, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { byId, type CalEvent, type Task, useList } from '@/shared/api'
+import { byId, type CalEvent, type Task, useList, useSave } from '@/shared/api'
 import { weekDays, ymd } from '@/shared/lib'
-import { Button, IconButton, PageHeader, Segmented } from '@/shared/ui'
+import { Button, IconButton, PageHeader, Segmented, DragDropProvider, DragHandle, DropZone, type DragItem, type DropTarget } from '@/shared/ui'
 import { ProjectFilter } from '@/entities/project'
 import { useEditor } from '@/features/edit-record'
 
@@ -47,7 +48,7 @@ function useItems(projectFilter: string) {
         out.push({ key: `e${e.id}`, kind: 'event', title: e.title, color, allDay, startMin, endMin: Math.max(endMin, startMin + 30), src: e })
       }
       for (const t of tasks) {
-        if (t.due_date !== day || !keep(t.project_id)) continue
+        if ((t.planned_date || t.due_date) !== day || !keep(t.project_id)) continue
         const color = (t.project_id && projects.get(t.project_id)?.color) || 'var(--text-3)'
         const startMin = t.due_time ? minutes('0000-00-00T' + t.due_time) : 0
         out.push({
@@ -57,7 +58,7 @@ function useItems(projectFilter: string) {
           color,
           allDay: !t.due_time,
           startMin,
-          endMin: startMin + 30,
+          endMin: Math.min(1440, startMin + (t.estimate_minutes || 30)),
           done: t.status === 'done',
           src: t,
         })
@@ -91,33 +92,68 @@ function layout(items: Item[]) {
 
 function Chip({ item, onClick }: { item: Item; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick()
-      }}
-      className={clsx(
-        'flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[12px] leading-4 hover:brightness-95',
-        item.done && 'line-through opacity-60',
-      )}
-      style={{ background: `color-mix(in srgb, ${item.color} 16%, var(--surface))`, color: 'var(--text)' }}
-    >
-      {item.kind === 'task' ? (
-        <CheckSquare size={10} className="shrink-0" style={{ color: item.color }} />
-      ) : (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: item.color }} />
-      )}
-      {!item.allDay && (
-        <span className="shrink-0 text-fg-3 tabular">{`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}</span>
-      )}
-      <span className="truncate">{item.title}</span>
-    </button>
+    <div className="flex items-center rounded" style={{ background: `color-mix(in srgb, ${item.color} 16%, var(--surface))` }}>
+      <DragHandle item={{ type: item.kind, id: item.src.id, title: item.title }} className="min-h-7 w-6" />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
+        className={clsx(
+          'flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[12px] leading-4 hover:brightness-95',
+          item.done && 'line-through opacity-60',
+        )}
+        style={{ background: `color-mix(in srgb, ${item.color} 16%, var(--surface))`, color: 'var(--text)' }}
+      >
+        {item.kind === 'task' ? (
+          <CheckSquare size={10} className="shrink-0" style={{ color: item.color }} />
+        ) : (
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: item.color }} />
+        )}
+        {!item.allDay && (
+          <span className="shrink-0 text-fg-3 tabular">{`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}</span>
+        )}
+        <span className="truncate">{item.title}</span>
+      </button>
+    </div>
   )
 }
 
 export function CalendarPage() {
-  const edit = useEditor()
+  const edit = useEditor(),
+    saveTask = useSave('tasks'),
+    saveEvent = useSave('events'),
+    tasks = useList('tasks'),
+    events = useList('events')
+  const moveItem = (item: DragItem, target: DropTarget) => {
+    const date = target.data.date
+    if (!date) return
+    if (item.type === 'task') {
+      const task = tasks.find((t) => t.id === item.id)
+      if (!task) return
+      saveTask.mutate(
+        {
+          id: item.id,
+          due_date: date,
+          planned_date: date,
+          focus_date: task.focus_date === date ? task.focus_date : null,
+          ...('time' in target.data ? { due_time: target.data.time } : {}),
+        },
+        { onSuccess: () => toast.success('Задача перенесена') },
+      )
+    } else {
+      const event = events.find((e) => e.id === item.id)
+      if (!event) return
+      const duration = event.end ? Math.max(30, (Date.parse(event.end + 'Z') - Date.parse(event.start + 'Z')) / 60000) : 60
+      const allDay = target.data.allDay === 'true' || (!target.data.time && event.all_day)
+      const time = allDay ? '00:00' : target.data.time || event.start.slice(11, 16)
+      const start = `${date}T${time}`,
+        length = allDay ? Math.max(1, Math.ceil(duration / 1440)) * 1440 - 1 : event.all_day ? 60 : duration
+      const end = new Date(Date.parse(start + 'Z') + length * 60000).toISOString().slice(0, 16)
+      saveEvent.mutate({ id: event.id, start, end, all_day: !!allDay }, { onSuccess: () => toast.success('Событие перенесено') })
+    }
+  }
   const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'))
   const [anchor, setAnchor] = useState(accountNow())
   const [project, setProject] = useState('')
@@ -129,10 +165,10 @@ export function CalendarPage() {
   }, [view])
 
   const open = (item: Item) => edit(item.kind === 'event' ? 'events' : 'tasks', item.src as any)
-  const newEvent = (day: string, hour = 9) => {
-    const h = String(hour).padStart(2, '0')
-    const h2 = String(Math.min(hour + 1, 23)).padStart(2, '0')
-    edit('events', { start: `${day}T${h}:00`, end: `${day}T${h2}:00`, project_id: project ? Number(project) : null })
+  const newEvent = (day: string, hour = 9, minute = 0) => {
+    const start = `${day}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    const end = new Date(Date.parse(start + 'Z') + 60 * 60000).toISOString().slice(0, 16)
+    edit('events', { start, end, project_id: project ? Number(project) : null })
   }
 
   const step = (dir: number) => setAnchor((a) => (view === 'month' ? addMonths(a, dir) : view === 'week' ? addWeeks(a, dir) : addDays(a, dir)))
@@ -146,7 +182,7 @@ export function CalendarPage() {
   const days = view === 'week' ? weekDays(anchor) : [anchor]
 
   return (
-    <>
+    <DragDropProvider onDrop={moveItem} disabled={saveTask.isPending || saveEvent.isPending || !navigator.onLine}>
       <PageHeader
         title="Календарь"
         actions={
@@ -162,6 +198,12 @@ export function CalendarPage() {
                 { value: 'month', label: 'Месяц' },
               ]}
             />
+            <Button
+              icon={Plus}
+              onClick={() => edit('tasks', { due_date: ymd(anchor), planned_date: ymd(anchor), project_id: project ? Number(project) : null })}
+            >
+              Задача
+            </Button>
             <Button variant="primary" icon={Plus} onClick={() => newEvent(ymd(anchor))}>
               Событие
             </Button>
@@ -178,6 +220,23 @@ export function CalendarPage() {
         <h2 className="text-[15px] font-semibold first-letter:uppercase">{title}</h2>
       </div>
 
+      {tasks.some((t) => t.status !== 'done' && !t.due_date && !t.planned_date && (!project || String(t.project_id) === project)) && (
+        <details className="mb-3 rounded-xl border border-line bg-surface p-3">
+          <summary className="min-h-9 cursor-pointer text-sm text-fg-2">Задачи без даты · перетащи в календарь</summary>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {tasks
+              .filter((t) => t.status !== 'done' && !t.due_date && !t.planned_date && (!project || String(t.project_id) === project))
+              .map((t) => (
+                <div key={t.id} className="flex max-w-64 items-center rounded-lg border border-line">
+                  <DragHandle item={{ type: 'task', id: t.id, title: t.title }} />
+                  <button type="button" className="min-h-9 truncate pr-3 text-sm" onClick={() => edit('tasks', t)}>
+                    {t.title}
+                  </button>
+                </div>
+              ))}
+          </div>
+        </details>
+      )}
       {view === 'month' ? (
         <MonthGrid
           anchor={anchor}
@@ -220,9 +279,10 @@ export function CalendarPage() {
               день
             </div>
             {days.map((d) => (
-              <div
+              <DropZone
                 key={ymd(d)}
-                onClick={() => edit('tasks', { due_date: ymd(d) })}
+                target={{ id: `all-day:${ymd(d)}`, label: `Весь день ${ymd(d)}`, data: { date: ymd(d), time: null, allDay: 'true' } }}
+                onClick={() => edit('tasks', { due_date: ymd(d), planned_date: ymd(d), project_id: project ? Number(project) : null })}
                 className="min-h-8 cursor-pointer space-y-0.5 border-t border-l border-line p-1"
               >
                 {itemsFor(ymd(d))
@@ -230,7 +290,7 @@ export function CalendarPage() {
                   .map((i) => (
                     <Chip key={i.key} item={i} onClick={() => open(i)} />
                   ))}
-              </div>
+              </DropZone>
             ))}
           </div>
           <div ref={scroller} className="relative max-h-[calc(100vh-280px)] min-h-96 overflow-y-auto">
@@ -247,20 +307,32 @@ export function CalendarPage() {
                 const timed = layout(itemsFor(day).filter((i) => !i.allDay))
                 return (
                   <div key={day} className="relative border-l border-line">
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <div
-                        key={h}
-                        onClick={() => newEvent(day, h)}
-                        className="absolute inset-x-0 cursor-pointer border-t border-line/60 hover:bg-hover/60"
-                        style={{ top: h * HOUR, height: HOUR }}
-                      />
-                    ))}
+                    {Array.from({ length: 96 }, (_, slot) => {
+                      const h = Math.floor(slot / 4),
+                        minute = (slot % 4) * 15,
+                        time = `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+                      return (
+                        <DropZone
+                          key={slot}
+                          target={{ id: `time:${day}:${time}`, label: `${day}, ${time}`, data: { date: day, time } }}
+                          onClick={() => newEvent(day, h, minute)}
+                          className={clsx('absolute inset-x-0 cursor-pointer hover:bg-hover/60', minute === 0 && 'border-t border-line/60')}
+                          style={{ top: (slot * HOUR) / 4, height: HOUR / 4 }}
+                        />
+                      )
+                    })}
                     {isToday(d) && <NowLine />}
                     {timed.map(({ item, col, cols }) => (
-                      <button
+                      <DropZone
                         key={item.key}
-                        type="button"
-                        onClick={() => open(item)}
+                        target={{
+                          id: `occupied:${day}:${item.key}`,
+                          label: `${day}, ${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`,
+                          data: {
+                            date: day,
+                            time: `${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`,
+                          },
+                        }}
                         className={clsx(
                           'absolute overflow-hidden rounded-[7px] border-l-[3px] px-1.5 py-1 text-left text-[12px] leading-tight shadow-sm hover:brightness-95',
                           item.done && 'line-through opacity-60',
@@ -274,14 +346,19 @@ export function CalendarPage() {
                           background: `color-mix(in srgb, ${item.color} 14%, var(--surface))`,
                         }}
                       >
-                        <div className="flex items-center gap-1 truncate font-medium">
-                          {item.kind === 'task' && <CheckSquare size={10} className="shrink-0" />}
-                          {item.title}
+                        <div className="flex h-full items-start">
+                          <DragHandle item={{ type: item.kind, id: item.src.id, title: item.title }} className="min-h-6 w-5" />
+                          <button type="button" onClick={() => open(item)} className="min-h-6 min-w-0 flex-1 text-left">
+                            <div className="flex items-center gap-1 truncate font-medium">
+                              {item.kind === 'task' && <CheckSquare size={10} className="shrink-0" />}
+                              {item.title}
+                            </div>
+                            <div className={clsx('text-fg-3 tabular', item.endMin - item.startMin < 45 && 'hidden')}>
+                              {`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}
+                            </div>
+                          </button>
                         </div>
-                        <div className={clsx('text-fg-3 tabular', item.endMin - item.startMin < 45 && 'hidden')}>
-                          {`${String(Math.floor(item.startMin / 60)).padStart(2, '0')}:${String(item.startMin % 60).padStart(2, '0')}`}
-                        </div>
-                      </button>
+                      </DropZone>
                     ))}
                   </div>
                 )
@@ -290,7 +367,7 @@ export function CalendarPage() {
           </div>
         </div>
       )}
-    </>
+    </DragDropProvider>
   )
 }
 
@@ -341,8 +418,9 @@ function MonthGrid({
           const day = ymd(d)
           const items = itemsFor(day)
           return (
-            <div
+            <DropZone
               key={day}
+              target={{ id: `month:${day}`, label: `На ${day}`, data: { date: day } }}
               onClick={() => onNew(day)}
               className={clsx(
                 'min-h-24 cursor-pointer p-1 hover:bg-hover/50 sm:min-h-28',
@@ -381,7 +459,7 @@ function MonthGrid({
                   </button>
                 )}
               </div>
-            </div>
+            </DropZone>
           )
         })}
       </div>

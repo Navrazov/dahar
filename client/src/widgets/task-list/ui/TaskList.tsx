@@ -104,9 +104,9 @@ export function TaskRow({ task, hideProject }: { task: Task; hideProject?: boole
           <title>{label(priorities, task.priority)}</title>
         </Flag>
       )}
-      {task.due_date && (
+      {(task.planned_date || task.due_date) && (
         <span className={clsx('shrink-0 text-[12.5px] tabular', overdue ? 'font-medium text-bad' : 'text-fg-3')}>
-          {relDate(task.due_date)}
+          {relDate(task.planned_date || task.due_date)}
           {task.due_time && `, ${task.due_time}`}
         </span>
       )}

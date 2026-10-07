@@ -74,6 +74,6 @@ test('a lost success response and two syncing tabs still create only one record'
       return tasks.filter((t: { title: string }) => t.title === title).length
     })
     .toBe(1)
-  await expect(page.getByRole('status')).toBeHidden()
+  await expect(page.getByRole('status').filter({ hasText: /Нет сети|Отправляем изменения|Изменений ждут/ })).toBeHidden({ timeout: 20_000 })
   await second.close()
 })

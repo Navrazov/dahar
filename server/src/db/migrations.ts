@@ -255,6 +255,19 @@ export const migrations: Migration[] = [
       )
     },
   },
+  {
+    id: '010_task_interactions',
+    up: async (c) => {
+      await query(
+        `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS planned_date date;
+        ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order integer;
+        UPDATE tasks SET planned_date=focus_date WHERE planned_date IS NULL AND focus_date IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_tasks_planned ON tasks(user_id,planned_date);`,
+        [],
+        c,
+      )
+    },
+  },
 ]
 
 type Log = (message: string) => void

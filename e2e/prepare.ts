@@ -21,6 +21,8 @@ await query(
 )
 await createUser({ login: 'e2e-mini-pages', password: 'e2e-password', name: 'Mini Pages' })
 await query("INSERT INTO tasks(user_id,title) SELECT u.id,'Paged Mini '||i FROM users u CROSS JOIN generate_series(1,65) i WHERE u.login='e2e-mini-pages'")
+await createUser({ login: 'e2e-interactions', password: 'e2e-password', name: 'Interactions' })
+await createUser({ login: 'e2e-mini-gestures', password: 'e2e-password', name: 'Mini Gestures' })
 await createAdmin('owner', 'owner-password')
 await createAdmin('admin-e2e', 'admin-password')
 await pool.end()

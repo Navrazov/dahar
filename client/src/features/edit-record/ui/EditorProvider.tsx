@@ -147,7 +147,9 @@ function EditorModal({ state, open, onClose, compact }: { state: State; open: bo
         }}
       >
         {visible
-          .filter((f) => advanced || ['title', 'name', 'due_date', 'date', 'kind', 'amount', 'start', 'end', 'all_day'].includes(f.name) || f.required)
+          .filter(
+            (f) => advanced || ['title', 'name', 'due_date', 'project_id', 'date', 'kind', 'amount', 'start', 'end', 'all_day'].includes(f.name) || f.required,
+          )
           .map((f) => (
             <FieldControl
               key={f.name}

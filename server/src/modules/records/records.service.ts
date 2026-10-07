@@ -13,8 +13,8 @@ export async function listRecords(table: TableName, userId: number, params?: Lis
   return (await listRows(table, userId, params)).map(decode)
 }
 
-export async function getRecord(table: TableName, id: unknown, userId: number) {
-  const row = await getRow(table, id, userId)
+export async function getRecord(table: TableName, id: unknown, userId: number, client?: PoolClient) {
+  const row = await getRow(table, id, userId, client)
   if (!row) throw notFound()
   return decode(row)
 }

@@ -72,6 +72,19 @@ export const hooks: Partial<Record<TableName, Hooks>> = {
         if (items.length > 50 || items.some((item) => item.text.length > 200)) throw badRequest('Чек-лист: до 50 шагов по 200 символов')
         data.checklist = serializeChecklist(items) || null
       }
+      if (
+        prev &&
+        'due_date' in data &&
+        data.due_date !== prev.due_date &&
+        prev.planned_date === prev.due_date &&
+        (!('planned_date' in data) || data.planned_date === prev.planned_date)
+      )
+        data.planned_date = data.due_date
+      if ('planned_date' in data && prev?.focus_date && data.planned_date !== prev.focus_date && !('focus_date' in data)) data.focus_date = null
+      if (!prev && data.sort_order == null) data.sort_order = 0
+      // Selecting the day's focus also puts it in the day's plan; removing the star keeps that plan.
+      if (data.focus_date) data.planned_date = data.focus_date
+      else if ('focus_date' in data && prev?.focus_date && !('planned_date' in data)) data.planned_date = prev.planned_date || prev.focus_date
       const row = { ...prev, ...data }
       if (row.focus_date && row.status !== 'done' && (row.focus_date !== prev?.focus_date || prev?.status === 'done')) {
         const n = (

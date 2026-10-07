@@ -215,3 +215,94 @@ test('Mini App pages large lists on the server and searches beyond the first pag
   await expect(page.getByRole('button', { name: 'Paged Mini 1', exact: true })).toBeVisible()
   expect(requests).toEqual([])
 })
+
+test('Mini App keeps unstarred tasks today, assigns projects and supports touch swipe with undo', async ({ page, context }) => {
+  await signIn(page, 'e2e-mini-gestures')
+  const { user } = await page.request.get('/api/auth/me').then((r) => r.json())
+  const token = (await context.cookies()).find((c) => c.name === 'sid')!.value
+  const project = await page.request.post('/api/projects', { data: { name: unique('Mini project'), status: 'active' } }).then((r) => r.json())
+  await context.clearCookies()
+  await page.route('https://telegram.org/**', (route) => route.abort())
+  await page.route('**/api/telegram/webapp', (route) => route.fulfill({ json: { token, user } }))
+  await page.addInitScript(() => {
+    window.Telegram = {
+      WebApp: {
+        initData: 'test',
+        initDataUnsafe: {},
+        colorScheme: 'light',
+        platform: 'android',
+        ready() {},
+        expand() {},
+        onEvent() {},
+        openLink() {},
+        close() {},
+      },
+    }
+  })
+  await page.goto('/tg')
+  const nav = page.getByRole('navigation', { name: 'Разделы мини-приложения' })
+  await nav.getByRole('button', { name: 'Задачи', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Задачи', exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Проект новой задачи' }).selectOption(String(project.id))
+  const title = unique('Swipe task')
+  await page.getByRole('textbox', { name: 'Название новой задачи' }).fill(title)
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click()
+  const row = page.getByTestId('mini-task').filter({ has: page.getByRole('button', { name: title, exact: true }) })
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('combobox', { name: `Проект задачи ${title}` })).toHaveValue(String(project.id))
+  const apiGet = () => page.request.get('/api/tasks', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json())
+  const original = (await apiGet()).find((t) => t.title === title)
+  await row.getByRole('button', { name: 'Главное на сегодня', exact: true }).click()
+  await expect(row.getByRole('button', { name: 'Убрать из главного', exact: true })).toBeVisible()
+  await nav.getByRole('button', { name: 'Сегодня', exact: true }).click()
+  await row.getByRole('button', { name: 'Убрать из главного', exact: true }).click()
+  await expect(page.getByText('Другие дела сегодня', { exact: true })).toBeVisible()
+  await expect(row).toBeVisible()
+  await expect.poll(async () => (await apiGet()).find((t) => t.id === original.id)?.due_date).toBe(null)
+  const cdp = await context.newCDPSession(page)
+  const swipe = async (dx: number, dy = 0) => {
+    const box = (await row.boundingBox())!,
+      x = box.x + box.width - 24,
+      y = box.y + 30
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+    for (let i = 1; i <= 12; i++)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / 12, y: y + (dy * i) / 12 }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  }
+  await swipe(0, 70)
+  await expect(row).toBeVisible()
+  await expect(editor(page)).toHaveCount(0)
+  await swipe(-110)
+  const action = page.getByRole('button', { name: `Удалить ${title}`, exact: true })
+  await expect(action).toBeVisible()
+  await action.click()
+  await expect(row).toHaveCount(0)
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click()
+  await expect(row).toBeVisible()
+  await expect.poll(async () => (await apiGet()).find((t) => t.title === title)?.id).toBe(original.id)
+  await swipe(-290)
+  await expect(row).toHaveCount(0)
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click()
+  await expect(row).toBeVisible()
+  await nav.getByRole('button', { name: 'Задачи', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Задачи', exact: true })).toBeVisible()
+  const handle = page.getByRole('button', { name: `Перетащить ${title}`, exact: true }),
+    box = (await handle.boundingBox())!
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width / 2 + 12, y: box.y + box.height / 2 }] })
+  const target = page.locator('[data-drop-label="Завтра"]')
+  await expect(target).toBeVisible()
+  const destination = (await target.boundingBox())!
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: destination.x + destination.width / 2, y: destination.y + destination.height / 2 }],
+  })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  const today = await page.request
+    .get('/api/mini/today', { headers: { Authorization: `Bearer ${token}` } })
+    .then((r) => r.json())
+    .then((r) => r.date)
+  const tomorrow = new Date(Date.parse(today + 'T00:00Z') + 86400000).toISOString().slice(0, 10)
+  await expect.poll(async () => (await apiGet()).find((t) => t.id === original.id)?.due_date).toBe(tomorrow)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})

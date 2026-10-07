@@ -7,7 +7,25 @@ import { Plus } from 'lucide-react'
 import { addDays, endOfISOWeek } from 'date-fns'
 import { api, invalidateCollection, type Task, type TaskStatus, useList, useSave } from '@/shared/api'
 import { todayStr, ymd } from '@/shared/lib'
-import { Button, Card, Checkbox, DatePicker, Empty, FilterSelect, Input, PageHeader, SearchInput, Segmented, StatusPicker } from '@/shared/ui'
+import {
+  Button,
+  Card,
+  Checkbox,
+  DatePicker,
+  DragDropProvider,
+  DragHandle,
+  DragShelf,
+  DropZone,
+  type DragItem,
+  type DropTarget,
+  Empty,
+  FilterSelect,
+  Input,
+  PageHeader,
+  SearchInput,
+  Segmented,
+  StatusPicker,
+} from '@/shared/ui'
 import { ProjectFilter } from '@/entities/project'
 import { priorities, sortTasks, taskStatuses } from '@/entities/task'
 import { useEditor } from '@/features/edit-record'
@@ -31,7 +49,7 @@ function groupByDue(tasks: Task[]) {
   ]
   const g = Object.fromEntries(groups.map((x) => [x.key, x]))
   for (const t of tasks) {
-    const d = t.due_date
+    const d = t.planned_date || t.due_date
     if (t.status === 'done') g.done.items.push(t)
     else if (!d) g.none.items.push(t)
     else if (d < today) g.overdue.items.push(t)
@@ -81,7 +99,37 @@ export function TasksPage() {
   const [priority, setPriority] = useState('')
   const [q, setQ] = useState('')
   const [quick, setQuick] = useState('')
-  const [dragId, setDragId] = useState<number | null>(null)
+  const [moving, setMoving] = useState(false)
+  const [quickProject, setQuickProject] = useState('')
+  const moveTask = async (item: DragItem, target: DropTarget) => {
+    if (item.type !== 'task') return
+    if (target.data.before) {
+      if (item.id === Number(target.data.before)) return
+      setMoving(true)
+      try {
+        await api.reorderTask(item.id, Number(target.data.before))
+        await invalidateCollection(qc, 'tasks')
+      } catch (e) {
+        toast.error((e as Error).message)
+      } finally {
+        setMoving(false)
+      }
+      return
+    }
+    const source = tasks.find((t) => t.id === item.id)
+    if (!source) return
+    const data: Partial<Task> = target.data.status
+      ? { status: target.data.status as TaskStatus }
+      : 'project' in target.data
+        ? { project_id: target.data.project ? Number(target.data.project) : null }
+        : {
+            due_date: target.data.date,
+            planned_date: target.data.date,
+            focus_date: source.focus_date === target.data.date ? source.focus_date : null,
+            ...(!target.data.date ? { due_time: null } : {}),
+          }
+    save.mutate({ id: item.id, ...data }, { onSuccess: () => toast.success(target.label) })
+  }
 
   const filtered = tasks.filter(
     (t) =>
@@ -99,14 +147,14 @@ export function TasksPage() {
         status: 'todo',
         priority: 'medium',
         due_date: todayStr(),
-        project_id: project && project !== 'none' ? Number(project) : null,
+        project_id: quickProject ? Number(quickProject) : project && project !== 'none' ? Number(project) : null,
       })
       setQuick('')
     } catch {}
   }
 
   return (
-    <>
+    <DragDropProvider onDrop={moveTask} disabled={save.isPending || moving || bulkBusy || !navigator.onLine}>
       <PageHeader
         title="Задачи"
         subtitle={`${tasks.filter((t) => t.status !== 'done').length} открытых · ${tasks.filter((t) => t.status !== 'done' && t.due_date && t.due_date < todayStr()).length} просрочено`}
@@ -157,6 +205,35 @@ export function TasksPage() {
         )}
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-2" aria-label="Куда перенести задачу">
+        {[
+          { id: 'today', label: 'На сегодня', date: todayStr() },
+          { id: 'tomorrow', label: 'На завтра', date: ymd(addDays(accountNow(), 1)) },
+          { id: 'none', label: 'Без срока', date: null },
+        ].map((zone) => (
+          <DropZone
+            key={zone.id}
+            target={{ id: `date:${zone.id}`, label: zone.label, data: { date: zone.date } }}
+            className="flex min-h-11 items-center rounded-lg border border-dashed border-line px-3 text-xs text-fg-2"
+          >
+            {zone.label}
+          </DropZone>
+        ))}
+      </div>
+      <DragShelf>
+        {' '}
+        {projects
+          .filter((p) => p.status !== 'archived' && p.status !== 'done')
+          .map((p) => (
+            <DropZone
+              key={p.id}
+              target={{ id: `project:${p.id}`, label: `В проект «${p.name}»`, data: { project: String(p.id) } }}
+              className="flex min-h-11 max-w-48 items-center rounded-lg border border-dashed border-line px-3 text-xs text-fg-2"
+            >
+              <span className="truncate">{p.name}</span>
+            </DropZone>
+          ))}
+      </DragShelf>
       {!!selected.size && (
         <Card className="mb-4 flex flex-wrap items-center gap-2 p-3">
           <span className="text-[13px]">Выбрано: {selected.size}</span>
@@ -206,8 +283,23 @@ export function TasksPage() {
               onChange={(e) => setQuick(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addQuick()}
               placeholder="Быстрая задача на сегодня — введите и нажмите Enter"
-              className="border-0 px-0 shadow-none hover:border-0 focus:ring-0 focus:border-0"
+              className="min-w-0 flex-1 border-0 px-0 shadow-none hover:border-0 focus:ring-0 focus:border-0"
             />
+            <select
+              aria-label="Проект новой задачи"
+              value={quickProject}
+              onChange={(e) => setQuickProject(e.target.value)}
+              className="h-9 max-w-40 rounded-md border border-line bg-surface px-2 text-xs"
+            >
+              <option value="">{project && project !== 'none' ? 'Текущий проект' : 'Без проекта'}</option>
+              {projects
+                .filter((p) => p.status !== 'archived')
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
           </div>
           {!filtered.length ? (
             <Empty title="Ничего не найдено" hint="Измените фильтры или создайте задачу" />
@@ -219,14 +311,19 @@ export function TasksPage() {
                 </div>
                 <div className="divide-y divide-line">
                   {sortTasks(g.items).map((t) => (
-                    <div key={t.id} className="flex items-center">
+                    <DropZone
+                      key={t.id}
+                      target={{ id: `before:${t.id}`, label: `Перед «${t.title}»`, data: { before: String(t.id) } }}
+                      className="flex items-center"
+                    >
+                      <DragHandle item={{ type: 'task', id: t.id, title: t.title }} />
                       <div className={clsx('pl-3', !selectMode && 'hidden sm:block')}>
                         <Checkbox label={`Выбрать ${t.title}`} checked={selected.has(t.id)} onChange={() => toggle(t.id)} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <TaskRow task={t} />
                       </div>
-                    </div>
+                    </DropZone>
                   ))}
                 </div>
               </section>
@@ -238,13 +335,9 @@ export function TasksPage() {
           {taskStatuses.map((s) => {
             const col = sortTasks(filtered.filter((t) => (t.status || 'todo') === s.value))
             return (
-              <div
+              <DropZone
                 key={s.value}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (dragId) save.mutate({ id: dragId, status: s.value as TaskStatus })
-                  setDragId(null)
-                }}
+                target={{ id: `status:${s.value}`, label: `Статус: ${s.label}`, data: { status: s.value } }}
                 className="flex min-h-48 flex-col rounded-[10px] border border-line bg-surface-2/50"
               >
                 <div className="flex items-center justify-between px-3 py-2.5 text-[12.5px] font-medium">
@@ -257,17 +350,12 @@ export function TasksPage() {
                 </div>
                 <div className="flex flex-col gap-2 px-2 pb-2">
                   {(s.value === 'done' ? col.slice(0, 30) : col).map((t) => (
-                    <div
-                      key={t.id}
-                      draggable
-                      onDragStart={() => setDragId(t.id)}
-                      className={clsx(
-                        'relative overflow-hidden rounded-[9px] border border-line bg-surface shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
-                        dragId === t.id && 'opacity-50',
-                      )}
-                    >
-                      <div className="[&>div]:pr-10">
-                        <TaskRow task={t} />
+                    <div key={t.id} className={clsx('relative overflow-hidden rounded-[9px] border border-line bg-surface shadow-[0_1px_2px_rgb(0_0_0/0.04)]')}>
+                      <div className="flex items-center pr-8">
+                        <DragHandle item={{ type: 'task', id: t.id, title: t.title }} />
+                        <div className="min-w-0 flex-1">
+                          <TaskRow task={t} />
+                        </div>
                       </div>
                       <div className="absolute top-1.5 right-1.5">
                         <StatusPicker
@@ -281,11 +369,11 @@ export function TasksPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </DropZone>
             )
           })}
         </div>
       )}
-    </>
+    </DragDropProvider>
   )
 }

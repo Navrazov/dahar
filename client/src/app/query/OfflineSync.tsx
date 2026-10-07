@@ -10,6 +10,7 @@ export function OfflineSync() {
   const qc = useQueryClient()
 
   useEffect(() => {
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
     const patch = (table: string, fn: (rows: Row[]) => Row[]) =>
       qc.setQueriesData({ queryKey: collectionKey(table as CollectionName) }, (old: unknown) => (Array.isArray(old) ? fn(old as Row[]) : old))
 
@@ -18,6 +19,11 @@ export function OfflineSync() {
       if (change.kind === 'create') patch(change.table, (rows) => [change.row as Row, ...rows])
       if (change.kind === 'update') patch(change.table, (rows) => rows.map((r) => (r.id === change.row.id ? { ...r, ...change.row } : r)))
       if (change.kind === 'remove') patch(change.table, (rows) => rows.filter((r) => r.id !== change.id))
+      // Потерянный ответ тоже попадает в очередь, хотя браузер остаётся онлайн.
+      if (change.kind !== 'other' && navigator.onLine) {
+        clearTimeout(retryTimer)
+        retryTimer = setTimeout(sync, 1000)
+      }
     }
 
     const sync = async () => {
@@ -37,6 +43,7 @@ export function OfflineSync() {
       window.removeEventListener(OUTBOX_EVENT, onChange)
       window.removeEventListener('online', sync)
       clearInterval(timer)
+      clearTimeout(retryTimer)
     }
   }, [qc])
 

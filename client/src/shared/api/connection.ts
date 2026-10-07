@@ -7,7 +7,9 @@ export function useConnection() {
   const [pending, setPending] = useState(0)
 
   useEffect(() => {
-    const refresh = () => pendingCount().then(setPending)
+    let active = true
+    // Другой экран может отправить общую очередь без события в этой вкладке.
+    const refresh = () => pendingCount().then((n) => active && setPending(n))
     const onOnline = () => setOnline(true)
     const onOffline = () => setOnline(false)
     const onOutbox = (e: Event) => {
@@ -18,11 +20,16 @@ export function useConnection() {
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
     window.addEventListener(OUTBOX_EVENT, onOutbox)
+    window.addEventListener('focus', refresh)
+    const timer = setInterval(refresh, 5000)
     refresh()
     return () => {
+      active = false
+      clearInterval(timer)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
       window.removeEventListener(OUTBOX_EVENT, onOutbox)
+      window.removeEventListener('focus', refresh)
     }
   }, [])
 

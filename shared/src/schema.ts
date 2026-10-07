@@ -99,6 +99,8 @@ export const schema = {
     repeat_spawned: bool,
     reminded_at: { type: 'datetime' },
     focus_date: date,
+    planned_date: date,
+    sort_order: { type: 'int', min: 0, max: 2_147_483_647 },
   },
   events: {
     title,

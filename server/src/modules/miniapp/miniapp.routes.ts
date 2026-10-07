@@ -30,11 +30,11 @@ export function miniappRoutes() {
       offset = pageNumber(req.query.offset, 0, 1_000_000)
     const filters: Record<string, string> = {
       open: "status IS DISTINCT FROM 'done'",
-      inbox: "status IS DISTINCT FROM 'done' AND due_date IS NULL",
-      future: "status IS DISTINCT FROM 'done' AND due_date>$2::date",
+      inbox: "status IS DISTINCT FROM 'done' AND COALESCE(planned_date,due_date) IS NULL",
+      future: "status IS DISTINCT FROM 'done' AND COALESCE(planned_date,due_date)>$2::date",
       done: "status='done'",
-      late: "status IS DISTINCT FROM 'done' AND due_date<$2::date",
-      today: "status IS DISTINCT FROM 'done' AND due_date=$2::date",
+      late: "status IS DISTINCT FROM 'done' AND COALESCE(planned_date,due_date)<$2::date",
+      today: "status IS DISTINCT FROM 'done' AND COALESCE(planned_date,due_date)=$2::date",
     }
     const filter = String(req.query.filter ?? 'open')
     if (!filters[filter]) throw badRequest('Неизвестный фильтр задач')
@@ -52,7 +52,7 @@ export function miniappRoutes() {
     const where = `WHERE ${conditions.join(' AND ')} AND $2::date IS NOT NULL`
     const [items, count] = await Promise.all([
       query(
-        `SELECT * FROM tasks ${where} ORDER BY (focus_date=$2::date) DESC NULLS LAST,due_date ASC NULLS LAST,id DESC LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
+        `SELECT * FROM tasks ${where} ORDER BY (focus_date=$2::date) DESC NULLS LAST,COALESCE(planned_date,due_date) ASC NULLS LAST,sort_order ASC NULLS LAST,CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'low' THEN 3 ELSE 2 END,id DESC LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
         [...args, limit, offset],
       ),
       query(`SELECT count(*)::int AS total FROM tasks ${where}`, args),
@@ -64,13 +64,13 @@ export function miniappRoutes() {
     const rows = (
       await query(
         `WITH relevant AS (
-      SELECT *,CASE WHEN status='done' THEN 'done' WHEN focus_date=$2::date THEN 'focus' WHEN due_date=$2::date THEN 'today' ELSE 'late' END AS bucket
+      SELECT *,CASE WHEN status='done' THEN 'done' WHEN focus_date=$2::date THEN 'focus' WHEN COALESCE(planned_date,due_date)=$2::date THEN 'today' ELSE 'late' END AS bucket
       FROM tasks WHERE user_id=$1 AND (
-        (status IS DISTINCT FROM 'done' AND (focus_date=$2::date OR due_date<=$2::date))
+        (status IS DISTINCT FROM 'done' AND (focus_date=$2::date OR COALESCE(planned_date,due_date)<=$2::date))
         OR (status='done' AND completed_at>=$2::date AND completed_at<$2::date+1)
       )
     ),ranked AS (
-      SELECT *,count(*) OVER(PARTITION BY bucket)::int AS bucket_total,row_number() OVER(PARTITION BY bucket ORDER BY due_date ASC NULLS LAST,due_time ASC NULLS LAST,id DESC) AS position FROM relevant
+      SELECT *,count(*) OVER(PARTITION BY bucket)::int AS bucket_total,row_number() OVER(PARTITION BY bucket ORDER BY sort_order ASC NULLS LAST,due_date ASC NULLS LAST,due_time ASC NULLS LAST,id DESC) AS position FROM relevant
     ) SELECT * FROM ranked WHERE position<=50 ORDER BY bucket,position`,
         [req.user.id, date],
       )
